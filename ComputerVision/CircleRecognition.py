@@ -69,7 +69,7 @@ def colorID(blue, green, red):
     return color 
 
 
-# ID_circle()
+# IDcircle()
 # K.C. & E.H., Nov. 24th, 2018
 # This function identifies any given circle based on its color and location. Although it
 # does not return anything, it assigns the circle to its appropriate global variable
@@ -79,7 +79,7 @@ def colorID(blue, green, red):
 # v1:
 # Must implement all identifying functions. closestBot() is not fully developed, and must
 # be added when completed.
-def ID_circle(img, circle):
+def IDcircle(img, circle):
     x=int(circle[0])
     y=int(circle[1])
 
