@@ -66,7 +66,7 @@ def colorID(blue, green, red):
     elif (blue < 50 and green < 200 and red > 220):
         color = 'O' # Ball!
 
-    return color
+    return color 
 
 
 # ID_circle()
