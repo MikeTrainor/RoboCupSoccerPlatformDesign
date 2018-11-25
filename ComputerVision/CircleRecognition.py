@@ -23,6 +23,7 @@ class ballClass:
 
 roboList = []
 roboIDmarks = []
+ball = 0
 
 # closestBot()
 # x, Nov. yth, 2018
@@ -70,7 +71,7 @@ def colorID(blue, green, red):
     return color 
 
 
-# ID_circle()
+# IDcircle()
 # K.C. & E.H., Nov. 24th, 2018
 # This function identifies any given circle based on its color and location. Although it
 # does not return anything, it assigns the circle to its appropriate global variable
@@ -80,7 +81,9 @@ def colorID(blue, green, red):
 # v1:
 # Must implement all identifying functions. closestBot() is not fully developed, and must
 # be added when completed.
-def ID_circle(img, circle):
+def IDcircle(img, circle):
+    global ball # so we can assign the ball its position globally
+
     x=int(circle[0])
     y=int(circle[1])
 
@@ -89,8 +92,6 @@ def ID_circle(img, circle):
     red = img[y,x,2]
     color = colorID(blue, green, red)
     print('Circle is ', color)
-
-    roboList.append(robotClass())
 
     # if its blue or (if its yellow) --> Robot center/new robot
     if (color == 'B') or (color == 'Y'):
@@ -105,37 +106,46 @@ def ID_circle(img, circle):
         ball = ballClass([x,y])
 
 def assignIDmarks():
-    if isinstance(roboList, type(None)):
+    if isinstance(roboList, type(None)) == 0:
         # Assign each robot its four closest marks
         for robot in roboList:
             closestMarks = [0,0,0,0] # indices of the closest four marks to the robot center
-            furthestMark = [0,0] # [index, euclidean distance]
+                                     # [index in roboIDmarks, euclidean distance]
+            furthestMark = [0,0] # [index in closestMarks, euclidean distance]
 
             # Assign this robot its four closest marks
             for i, mark in enumerate(list(roboIDmarks)):
-                markDist = dist.euclidean(mark,robot.pos)
+                markDist = dist.euclidean([mark[0],mark[1]],robot.pos)
 
                 # If there aren't already four marks given to the robot, 
                 # just give it whatever is available in order to initialize robot.circles[]
                 if len(robot.circles) < 4:
                     robot.newMarking(mark)
-                    closestMarks[i] = i
+                    closestMarks[i] = [i, markDist]
+                    if markDist > furthestMark[1]:
+                        furthestMark = [i, markDist]
 
                 # If there is a closer value than the furthest currently in robot.circles[]
                 # replace the current furthest with this new one 
                 elif markDist < furthestMark[1]:
-                    robot.circles[furthestMark[0]] = mark   # might run into issues altering values in the "robot" object,
-                                                            # as it is the subject of the for loop
-                    closestMarks[furthestMark[0]] = i
-                
-                # Update the furthest mark- done after the above code so no weird stuff happens
-                if markDist > furthestMark:
-                    furthestMark = [i, markDist]
+                    robot.circles[furthestMark[0]] = mark
+                    closestMarks[furthestMark[0]] = [i, markDist]
 
-            # Remove the marks that were assigned to a robot- this will potentially make 
-            # assigning the rest of the marks much quicker with larger numbers of robots
-            for idx in closestMarks:
-                del roboIDmarks[idx]
+                    furthestMark[1] = markDist
+
+                    # redetermine the furthest mark within the current closest marks
+                    for j, qark in enumerate(closestMarks):
+                        if qark[1] > furthestMark[1]:
+                            furthestMark = [j, qark[1]]
+                
+            # *** The below code was intended to shorten the list of circles in order to 
+            # improve efficiency, however it had an error due to the index provided by
+            # "wark[0]" being incorrect after the element in the previous iteration 
+            # was deleted... ***
+            ## Remove the marks that were assigned to a robot- this will potentially make 
+            ## assigning the rest of the marks much quicker with larger numbers of robots
+            #for wark in closestMarks:
+            #    del roboIDmarks[wark[0]]
     else:
         print("No robots detected, but there are ID marks..?")
 
@@ -157,8 +167,8 @@ def main():
     # smooth it, otherwise a lot of false circles may be detected
     blurred = cv2.GaussianBlur(img, (9,9), 0)
     blurred2 = cv2.GaussianBlur(gray, (9,9), 0)
-    cv2.imshow("I wonder what blurred looks like...", blurred)
-    cv2.imshow("I wonder what blurred looks like...2", blurred2)
+    # cv2.imshow("I wonder what blurred looks like...", blurred)
+    # cv2.imshow("I wonder what blurred looks like...2", blurred2)
     # Some notes on the HoughCircles function:
     #  - by adjusting param2, we can alter the threshold for the circles recognized
     #  - adjusting param1 does not seem to have an effect on the result as of now
@@ -171,17 +181,24 @@ def main():
         for circle in circles[0,:]:
             IDcircle(img, circle)
 
-            # draw the outer circle
-            cv2.circle(img,(circle[0],circle[1]),circle[2],(0,255,0),2)
-            # draw the center of the circle
-            cv2.circle(img,(circle[0],circle[1]),2,(0,0,255),3)
-            cv2.imshow("circles on image", img)
-            cv2.waitKey()
+            ## draw the outer circle
+            #cv2.circle(img,(circle[0],circle[1]),circle[2],(0,255,0),2)
+            ## draw the center of the circle
+            #cv2.circle(img,(circle[0],circle[1]),2,(0,0,255),3)
+            #cv2.imshow("circles on image", img)
+            #cv2.waitKey()
         
         # Assign the ID marks observed to their appropriate robot
         if isinstance(roboIDmarks, type(None)) == 0:
             assignIDmarks()
-
+        
+        # Mark the robot circles seen robot by robot
+        for robot in roboList:
+            cv2.circle(img,(robot.pos[0],robot.pos[1]),10,(0,0,0),5)
+            for mark in robot.circles:
+                cv2.circle(img,(mark[0],mark[1]),10,(0,0,0),5)
+            cv2.imshow("robot by robot circles", img)
+            cv2.waitKey()
     
     cv2.waitKey()
     cv2.destroyAllWindows()
