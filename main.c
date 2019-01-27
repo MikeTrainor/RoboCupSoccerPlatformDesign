@@ -44,7 +44,6 @@
  */
 
 // Global Variables
-unsigned int encoder1_data1, encoder1_data2, encoder2_data1, encoder2_data2;
 unsigned int des_vel, mes_vel, des_vel2, mes_vel2;
 unsigned int e, e2, e_Prev2 = 0;
 unsigned int P_Term, I_Term, D_Term, P_Term2, I_Term2, D_Term2;
@@ -56,11 +55,10 @@ unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
 unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
 unsigned int u, u2;
-unsigned int difference1, difference2, difference3, difference4;
 unsigned int w1, w2, w3, w4;
-unsigned int count_temp1, count_temp2, count_temp3, count_temp4;
 unsigned int count1, count2, count3, count4;
-unsigned int test = 0;
+unsigned int direction = 0, direction2 = 0;
+int quad_count1 = 0, quad_count2 = 0;
 
 //PWM Service Routine
 void TPM1_IRQHandler() {
@@ -98,6 +96,9 @@ void TPM2_IRQHandler() {
 
 void TPM0_IRQHandler() {
 
+	//////////////////////////////////////////////////////////////////
+	//Encoder 1
+
 	if (TPM0_STATUS & TPM_STATUS_CH0F_MASK) {
 
 		T3_Current = TPM0_C0V; //Current count value
@@ -107,17 +108,19 @@ void TPM0_IRQHandler() {
 		}
 		else if (T3_Prev > T3_Current){
 			T3 = TPM0_MOD - T3_Prev + T3_Current; //In case of Overflow
-			count3 = count_temp3; //capture number of
-			count_temp3 = 0; //Reset temporary counter
 			TPM0_SC |= TPM_SC_TOF_MASK;
 		}
 		else if (T3_Prev == T3_Current){
 			T3 = 0; //No Change
 		}
 
+		//Check other state, increment if CH1 leads CH0
+		if(TPM0_STATUS & TPM_STATUS_CH1F_MASK){
+			quad_count1++;
+		}
+
 		T3_Prev = T3_Current; //Update Previous to Current
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
-		count_temp3++; //Increment counter
 		TPM0_STATUS |= TPM_STATUS_CH0F_MASK; //Reset Channel 0 Event
 	}
 
@@ -129,23 +132,35 @@ void TPM0_IRQHandler() {
 			T4 = T4_Current - T4_Prev; //Period of Square Wave
 		}
 		else if(T4_Prev > T4_Current){
-			T4 = T4_Prev - T4_Current; //In case of Overflow
-			count4 = count_temp4; //capture number of
-			count_temp4 = 0; //Reset temporary counter
+			T4 = TPM0_MOD - T4_Prev + T4_Current; //In case of Overflow
+			TPM0_SC |= TPM_SC_TOF_MASK; //Reset overflow timer
 		}
 		else if(T4_Prev == T4_Current){
 			T4 = 0; //No Change
 		}
 
+		//Check other state, decrement if CH0 leads CH1
+		if(TPM0_STATUS & TPM_STATUS_CH0F_MASK){
+			quad_count1--;
+		}
 
 		T4_Prev = T4_Current; //Temporary Variable
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
-		count_temp4++; //Increment counter
 		TPM0_STATUS |= TPM_STATUS_CH1F_MASK; //Reset Channel 1 Event
 	}
 
-	//encoder1_data1 = GPIOA_PDIR & (1 << 1); //Read Data
-	//encoder1_data2 = GPIOA_PDIR & (1 << 3); //Read Data
+	if(quad_count1 < 0){
+		direction = -1;
+	}
+	else if(quad_count1 > 0){
+		direction = 1;
+	}
+	else{
+		direction = 0
+	}
+
+	//////////////////////////////////////////////////////////////////
+	//Encoder 2
 
 	if (TPM0_STATUS & TPM_STATUS_CH2F_MASK) {
 
@@ -155,18 +170,20 @@ void TPM0_IRQHandler() {
 			T1 = T1_Current - T1_Prev; //Period of Square Wave
 		}
 		else if(T1_Prev > T1_Current){
-			T1 = T1_Prev - T1_Current; //In case of Overflow
-			count1 = count_temp1; //capture number of
-			count_temp1 = 0; //Reset temporary counter
+			T1 = TPM0_MOD - T1_Prev + T1_Current; //In case of Overflow
+			TPM0_SC |= TPM_SC_TOF_MASK; //Reset overflow timer
 		}
 		else if(T1_Prev == T1_Current){
 			T1 = 0; //No Change
 		}
 
+		//Check other state, increment if CH3 leads CH2
+		if(TPM0_STATUS & TPM_STATUS_CH3F_MASK){
+			quad_count2++;
+		}
 
 		T1_Prev = T1_Current; //Temporary Variable
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
-		count_temp1++; //Increment counter
 		TPM0_STATUS |= TPM_STATUS_CH2F_MASK; //Reset Channel 1 Event
 	}
 
@@ -178,19 +195,31 @@ void TPM0_IRQHandler() {
 			T2 = T2_Current - T2_Prev; //Period of Square Wave
 		}
 		else if(T2_Prev > T2_Current){
-			T2 = T2_Prev - T2_Current; //In case of Overflow
-			count2 = count_temp2; //capture number of
-			count_temp2 = 0; //Reset temporary counter
+			T2 = TPM0_MOD - T2_Prev + T2_Current; //In case of Overflow
+			TPM0_SC |= TPM_SC_TOF_MASK; //Reset overflow timer
 		}
 		else if(T2_Prev == T2_Current){
 			T2 = 0; //No Change
 		}
 
+		//Check other state, increment if CH2 leads CH3
+		if(TPM0_STATUS & TPM_STATUS_CH2F_MASK){
+			quad_count2--;
+		}
 
 		T2_Prev = T2_Current; //Temporary Variable
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
-		count_temp2++; //Increment counter
 		TPM0_STATUS |= TPM_STATUS_CH3F_MASK; //Reset Channel 1 Event
+	}
+
+	if(quad_count2 < 0){
+		direction2 = -1;
+	}
+	else if(quad_count2 > 0){
+		direction2 = 1;
+	}
+	else{
+		direction2 = 0
 	}
 
 }
@@ -242,22 +271,22 @@ void init_TPM() {
 	TPM0_SC |= TPM_SC_DMA_MASK;
 
 	//Init TPM0_CH0
-	TPM0_C0SC |= TPM_CnSC_ELSA_MASK; // choose the channel 0 mode as rising edge
+	TPM0_C0SC |= (TPM_CnSC_ELSA_MASK); // choose the channel 0 mode as rising
 	TPM0_C0SC |= TPM_CnSC_CHIE_MASK; //Channel interrupt enable
 	TPM0_C0SC |= TPM_CnSC_DMA_MASK; //Allow Direct Memory Access
 
 	//Init TPM0_CH1
-	TPM0_C1SC |= TPM_CnSC_ELSA_MASK; // choose the channel 0 mode as rising edge
+	TPM0_C1SC |= (TPM_CnSC_ELSA_MASK); // choose the channel 0 mode as rising
 	TPM0_C1SC |= TPM_CnSC_CHIE_MASK; //Channel interrupt enable
 	TPM0_C1SC |= TPM_CnSC_DMA_MASK; //Allow Direct Memory Access
 
 	//Init TPM0_CH2
-	TPM0_C2SC |= TPM_CnSC_ELSA_MASK; // choose the channel 0 mode as rising edge
+	TPM0_C2SC |= (TPM_CnSC_ELSA_MASK); // choose the channel 0 mode as rising
 	TPM0_C2SC |= TPM_CnSC_CHIE_MASK; //Channel interrupt enable
 	TPM0_C2SC |= TPM_CnSC_DMA_MASK; //Allow Direct Memory Access
 
 	//Init TPM0_CH3
-	TPM0_C3SC |= TPM_CnSC_ELSA_MASK; // choose the channel 0 mode as rising edge
+	TPM0_C3SC |= (TPM_CnSC_ELSA_MASK); // choose the channel 0 mode as rising
 	TPM0_C3SC |= TPM_CnSC_CHIE_MASK; //Channel interrupt enable
 	TPM0_C3SC |= TPM_CnSC_DMA_MASK; //Allow Direct Memory Access
 
@@ -331,7 +360,7 @@ int PID_Control0() {
 	I_Term = I_Term + e * T2; //Previous error + error*time step, doesnt work with period for some reason
 	D_Term = (e - e_Prev) / T2; //Slope, doesnt work with the period for some reason
 	e_Prev = e; //Previous Error
-	if (I_Term < I_Term_Min)
+	if (I_Term < I_Term_Min) //Checking for Integral Windup
 		I_Term = I_Term_Min;
 	if (I_Term > I_Term_Max)
 		I_Term = I_Term_Max;
@@ -356,7 +385,7 @@ int PID_Control1() {
 	I_Term2 = I_Term + e2 * T3; //Previous error + error*time step, doesnt work with period for some reason
 	D_Term2 = (e2 - e_Prev2) / T3; //Slope, doesnt work with the period for some reason
 	e_Prev2 = e2; //Previous Error
-	if (I_Term2 < I_Term_Min)
+	if (I_Term2 < I_Term_Min) //Checking for Integral Windup
 		I_Term2 = I_Term_Min;
 	if (I_Term2 > I_Term_Max)
 		I_Term2 = I_Term_Max;
