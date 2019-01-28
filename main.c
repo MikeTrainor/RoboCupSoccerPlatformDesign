@@ -45,10 +45,9 @@
 
 // Global Variables
 unsigned int des_vel, mes_vel, des_vel2, mes_vel2;
-unsigned int e, e2, e_Prev2 = 0;
+unsigned int e, e2, e_Prev = 0, e_Prev2 = 0;
 unsigned int P_Term, I_Term, D_Term, P_Term2, I_Term2, D_Term2;
-unsigned int I_Term_Min = 0, I_Term_Max = 5, e_Prev = 0;
-unsigned int velmax, ymax, y, ydot, ydotmax, umax = 0x0A;
+unsigned int I_Term_Min = 0, I_Term_Max = 5;
 unsigned int speed_motor0 = 0, speed_motor1 = 0;
 unsigned int Kp = 100, Kd = 10, Ki = 50; //These Values Come From Mike's MATLAB File
 unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
@@ -58,6 +57,7 @@ unsigned int u, u2;
 unsigned int w1, w2, w3, w4;
 unsigned int count1, count2, count3, count4;
 unsigned int direction = 0, direction2 = 0;
+unsigned int test_count = 0, test_count2 = 0;
 int quad_count1 = 0, quad_count2 = 0;
 
 //PWM Service Routine
@@ -67,7 +67,7 @@ void TPM1_IRQHandler() {
 	speed_motor1 = PID_Control1();
 
 	// Set Duty Cycle PWM
-	TPM1_C0V = TPM_CnV_VAL(0x64);// + speed_motor2;  //The duty cycle is equal to 0xFF/(speed_motor2)*100%
+	TPM1_C0V = TPM_CnV_VAL(0x00) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor2)*100%
 
 	//Set Motor Direction
 	GPIOB_PDOR |= (1 << 8); //Set as Logic 1 Output
@@ -81,10 +81,10 @@ void TPM1_IRQHandler() {
 void TPM2_IRQHandler() {
 
 	// PID
-	//speed_motor0 = PID_Control0();
+	speed_motor0 = PID_Control0();
 
 	// Set PWM
-	TPM2_C0V = TPM_CnV_VAL(0x32);//+ speed_motor0;  //The duty cycle is equal to 0xFF/(speed_motor0)*100%
+	TPM2_C0V = TPM_CnV_VAL(0x00) + speed_motor0;  //The duty cycle is equal to 0xFF/(speed_motor0)*100%
 
 	//Set Motor Direction
 	GPIOB_PDOR |= (1 << 9); //Set as Logic 1 Output
@@ -156,7 +156,7 @@ void TPM0_IRQHandler() {
 		direction = 1;
 	}
 	else{
-		direction = 0
+		direction = 0;
 	}
 
 	//////////////////////////////////////////////////////////////////
@@ -219,7 +219,7 @@ void TPM0_IRQHandler() {
 		direction2 = 1;
 	}
 	else{
-		direction2 = 0
+		direction2 = 0;
 	}
 
 }
@@ -247,6 +247,7 @@ void init_TPM() {
 	TPM_SC_CPWMS_MASK | TPM_SC_CMOD(0x02))) | (uint32_t) (
 	TPM_SC_TOF_MASK |
 	TPM_SC_TOIE_MASK | TPM_SC_CMOD(0x01)));
+	TPM2_SC |= TPM_SC_PS(7); //Divide clock down by 127
 
 	//Init TPM1
 	SIM_SCGC6 |= SIM_SCGC6_TPM1_MASK; // Enable TPM1
@@ -262,11 +263,12 @@ void init_TPM() {
 	TPM_SC_CPWMS_MASK | TPM_SC_CMOD(0x02))) | (uint32_t) (
 	TPM_SC_TOF_MASK |
 	TPM_SC_TOIE_MASK | TPM_SC_CMOD(0x01)));
+	TPM1_SC |= TPM_SC_PS(7); //Divide clock down by 127
 
 
 	//Init TPM0
 	SIM_SCGC6 |= SIM_SCGC6_TPM0_MASK; // Enable TPM0
-	TPM0_SC |= TPM_SC_PS(2); //Change this value around to try and get mes_vel reasonable, with 3 clock should be 1953.125 Hz
+	TPM0_SC |= TPM_SC_PS(2); //Change this value around to try and get mes_vel reasonable
 	TPM0_SC |= TPM_SC_TOF_MASK;
 	TPM0_SC |= TPM_SC_DMA_MASK;
 
@@ -304,8 +306,8 @@ void init_TPM() {
 void init_MCG() {
 	MCG_C1 = MCG_C1_IRCLKEN_MASK; //Allows Use as IRCLKEN Clock
 	MCG_C2 = MCG_C2_IRCS_MASK; //Fast Internal Clock is Selected
-	//MCG_SC = MCG_SC_FCRDIV_MASK & 0x01; //Divide Clock by a Factor of 2 = 15.625 KHz
-	MCG_SC = MCG_SC_FCRDIV_MASK; //Divide Clock by a Factor of 2 = 15.625 KHz
+	MCG_SC = MCG_SC_FCRDIV_MASK & 0x01; //Divide Clock by a Factor of 2 = 2 MHz
+	//MCG_SC = MCG_SC_FCRDIV_MASK; //Divide Clock by a Factor of 7 = 4 MHz / 128
 }
 
 void init_Encoder() {
@@ -315,15 +317,15 @@ void init_Encoder() {
 	SIM_SCGC5 |= SIM_SCGC5_PORTC_MASK; //Initialize Port C
 	PORTC_PCR3 |= PORT_PCR_MUX(4); //MUX For TPM0_CH2
 	PORTC_PCR4 |= PORT_PCR_MUX(4); //MUX For TPM0_CH3
-	PORTC_PCR3 |= 0x90000; //Interrupt on Rising Edge & Configured as GPIO PTD3
-	PORTC_PCR4 |= 0x90000; //Interrupt on Rising Edge & Configured as GPIO PTD1
+	PORTC_PCR3 |= 0x90000; //Interrupt on Rising Edge
+	PORTC_PCR4 |= 0x90000; //Interrupt on Rising Edge
 
 
 	//Encoder 2 on PTC1 & PTC2
 	PORTC_PCR1 |= PORT_PCR_MUX(4); //MUX for TPM0_CH0
 	PORTC_PCR2 |= PORT_PCR_MUX(4); //MUX For TPM0_CH1
 	PORTC_PCR1 |= 0x90000; //Interrupt on Rising Edge
-	PORTC_PCR2 |= 0x90000; //Interrupt on Rising Edge & Configured as GPIO PTA2
+	PORTC_PCR2 |= 0x90000; //Interrupt on Rising Edge
 
 }
 
@@ -352,24 +354,28 @@ void init_led() {
 //In order for this function to work the mes_vel calculation needs to use the input ports Tx value,
 //and the Tx for the I_Term & D_Term must be different from the first, possibly needs no input for it to work
 int PID_Control0() {
+	test_count2++;
+	des_vel = 0x60;
+	if(test_count2 >200000){
+		des_vel = 0x20;
+	}
 
-	des_vel = 0x30;
-	mes_vel = (count2 * 2 * 3 * 15625) / (1398 * T2); //Attempting to get around floating point error T*1us
+	mes_vel = (2 * 3 * 2000000) / (1398 * T2); //Attempting to get around floating point error T*1us
 
 	e = des_vel - mes_vel; //Error
 	I_Term = I_Term + e * T2; //Previous error + error*time step, doesnt work with period for some reason
-	D_Term = (e - e_Prev) / T2; //Slope, doesnt work with the period for some reason
+	D_Term = (e - e_Prev) / T2; //Slope
 	e_Prev = e; //Previous Error
 	if (I_Term < I_Term_Min) //Checking for Integral Windup
 		I_Term = I_Term_Min;
 	if (I_Term > I_Term_Max)
 		I_Term = I_Term_Max;
 
-	u = e*1 + I_Term*1 + D_Term*1;
-	//u = u/256;//u*0.00008/256;
+	u = e*Kp + I_Term*Ki + D_Term*Kd;
+	u = u/256;//u*0.00008/256;
 
 	//Limit u if it is too large
-	if (u > 0xFF) u = 0xFF;//Limit Output if too large
+	if (u > 0x70) u = 0x70;//Limit Output if too large
 
 	//if(u >= 0) Dir = 1; else Dir = 0;
 
@@ -377,24 +383,27 @@ int PID_Control0() {
 }
 
 int PID_Control1() {
-
+	test_count++;
 	des_vel2 = 0x60;
-	mes_vel2 = (count3 * 2 * 3 * 15625) / (1398 * T3); //Attempting to get around floating point error T*1us
+	if(test_count >200000){
+		des_vel2 = 0x20;
+	}
+	mes_vel2 = (2 * 3 * 2000000) / (1398 * T3); //Attempting to get around floating point error T*1us
 
 	e2 = des_vel2 - mes_vel2; //Error
 	I_Term2 = I_Term + e2 * T3; //Previous error + error*time step, doesnt work with period for some reason
-	D_Term2 = (e2 - e_Prev2) / T3; //Slope, doesnt work with the period for some reason
+	D_Term2 = (e2 - e_Prev2) / T3; //Slope
 	e_Prev2 = e2; //Previous Error
 	if (I_Term2 < I_Term_Min) //Checking for Integral Windup
 		I_Term2 = I_Term_Min;
 	if (I_Term2 > I_Term_Max)
 		I_Term2 = I_Term_Max;
 
-	u2 = e2*1 + I_Term2*1 + D_Term2*1;
-	//u = u*0.00008/256;
+	u2 = e2*Kp + I_Term2*Ki + D_Term2*Kd;
+	u2 = u2/256; //Divide by 256 to make it between 0 & 0xFF
 
 	//Limit u if it is too large
-	if (u2 > 0xFF) u2 = 0xFF;//Limit Output if too large
+	if (u2 > 0x70) u2 = 0x70;//Limit Output if too large
 
 	//if(u >= 0) Dir = 1; else Dir = 0;
 
