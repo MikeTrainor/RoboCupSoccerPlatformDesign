@@ -37,10 +37,10 @@
 // https://www.dialog-semiconductor.com/sites/default/files/an-cm-250_position_and_speed_control_of_a_dc_motor_using_analog_pid_controller.pdf
 
 /*PORTS IN USE
- * PTC1, PTC2
- * PTC3, PTC4
- * PTA5, PTC9 = PWM Output
- *
+ * PTC1, PTC2 Encoder 1
+ * PTC3, PTC4 Encoder 2
+ * PTA1, PTCA12 = PWM Output
+ * PTB8, PTB9 Direction 1, Direction 2
  */
 
 // Global Variables
@@ -64,10 +64,10 @@ int quad_count1 = 0, quad_count2 = 0;
 void TPM1_IRQHandler() {
 
 	// PID
-	speed_motor1 = PID_Control1();
+	speed_motor0 = PID_Control0();
 
 	// Set Duty Cycle PWM
-	TPM1_C0V = TPM_CnV_VAL(0x00) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor2)*100%
+	TPM1_C0V = TPM_CnV_VAL(0x00) + speed_motor0;  //The duty cycle is equal to 0xFF/(speed_motor0)*100%
 
 	//Set Motor Direction
 	GPIOB_PDOR |= (1 << 8); //Set as Logic 1 Output
@@ -81,10 +81,10 @@ void TPM1_IRQHandler() {
 void TPM2_IRQHandler() {
 
 	// PID
-	speed_motor0 = PID_Control0();
+	speed_motor1 = PID_Control1();
 
 	// Set PWM
-	TPM2_C0V = TPM_CnV_VAL(0x00) + speed_motor0;  //The duty cycle is equal to 0xFF/(speed_motor0)*100%
+	TPM2_C0V = TPM_CnV_VAL(0x00) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
 
 	//Set Motor Direction
 	GPIOB_PDOR |= (1 << 9); //Set as Logic 1 Output
@@ -355,9 +355,21 @@ void init_led() {
 //and the Tx for the I_Term & D_Term must be different from the first, possibly needs no input for it to work
 int PID_Control0() {
 	test_count2++;
-	des_vel = 0x60;
-	if(test_count2 >200000){
-		des_vel = 0x20;
+	des_vel = 0x10;
+
+	if(test_count2 < 100000){
+		des_vel = 0xBF;
+	}
+	if(test_count2 < 200000){
+		des_vel = 0xBF;
+		GPIOB_PSOR |= (1 << 8); //Change motor direction
+	}
+	if(test_count2 < 300000){
+		des_vel = 0xBF;
+		GPIOB_PCOR |= (1 << 8); //Change motor direction
+	}
+	if(test_count2 >= 300000){
+		test_count2 = 0;
 	}
 
 	mes_vel = (2 * 3 * 2000000) / (1398 * T2); //Attempting to get around floating point error T*1us
@@ -384,10 +396,22 @@ int PID_Control0() {
 
 int PID_Control1() {
 	test_count++;
-	des_vel2 = 0x60;
-	if(test_count >200000){
-		des_vel2 = 0x20;
+	des_vel2 = 0x10;
+
+	if(test_count < 100000){
+		des_vel2 = 0xBF;
 	}
+	if(test_count < 200000){
+		des_vel2 = 0xBF;
+		GPIOB_PCOR |= (1 << 9); //Change motor direction
+	}
+	if(test_count < 300000){
+		GPIOB_PSOR |= (1 << 9); //Change motor direction
+	}
+	if(test_count >= 300000){
+		test_count = 0;
+	}
+
 	mes_vel2 = (2 * 3 * 2000000) / (1398 * T3); //Attempting to get around floating point error T*1us
 
 	e2 = des_vel2 - mes_vel2; //Error
@@ -479,7 +503,7 @@ int main(void) {
 	init_direction();
 	//init_led();
 
-	//UART_Interface_Init(9600);
+	UART_Interface_Init(9600);
 
 	T1_Prev = TPM0_CNT; //Initial TPM0 Value
 	T2_Prev = TPM0_CNT; //Initial TPM0 Value
@@ -488,9 +512,9 @@ int main(void) {
 
 
 	for (;;) {
-		//UART0_Putchar(0x30);
-		//UART0_Putchar(',');
-		//UART0_Putchar((char)u);
+		UART0_Putchar(e);
+		UART0_Putchar(',');
+		UART0_Putchar(e2);
 	}
 
 	return 0;
