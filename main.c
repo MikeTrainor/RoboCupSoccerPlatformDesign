@@ -44,7 +44,7 @@
  */
 
 // Global Variables
-unsigned int des_vel, mes_vel, des_vel2, mes_vel2;
+unsigned int des_vel, mes_vel, des_vel_prev, des_vel2, mes_vel2, des_vel_prev2;
 unsigned int e, e2, e_Prev = 0, e_Prev2 = 0;
 unsigned int P_Term, I_Term, D_Term, P_Term2, I_Term2, D_Term2;
 unsigned int I_Term_Min = 0, I_Term_Max = 5;
@@ -55,9 +55,11 @@ unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
 unsigned int u, u2;
 unsigned int w1, w2, w3, w4;
+unsigned int r = 0, r2 = 0;
 unsigned int count1, count2, count3, count4;
-unsigned int direction = 0, direction2 = 0;
-unsigned int test_count = 0, test_count2 = 0;
+unsigned int direction = 0, direction2 = 0; //Values for direction
+unsigned int test_count = 0, test_count2 = 0; //Test Variables
+unsigned int ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
 int quad_count1 = 0, quad_count2 = 0;
 
 //PWM Service Routine
@@ -354,27 +356,29 @@ void init_led() {
 //In order for this function to work the mes_vel calculation needs to use the input ports Tx value,
 //and the Tx for the I_Term & D_Term must be different from the first, possibly needs no input for it to work
 int PID_Control0() {
-	test_count2++;
-	des_vel = 0x10;
 
-	if(test_count2 < 100000){
-		des_vel = 0xBF;
-	}
-	if(test_count2 < 200000){
-		des_vel = 0xBF;
-		GPIOB_PSOR |= (1 << 8); //Change motor direction
-	}
-	if(test_count2 < 300000){
-		des_vel = 0xBF;
-		GPIOB_PCOR |= (1 << 8); //Change motor direction
-	}
-	if(test_count2 >= 300000){
-		test_count2 = 0;
-	}
 
+	des_vel = 0x70;//Set the desired value
 	mes_vel = (2 * 3 * 2000000) / (1398 * T2); //Attempting to get around floating point error T*1us
+	ramp_rate = (des_vel - des_vel_prev) / (T2*5); //Ramp input over 5 function calls
 
-	e = des_vel - mes_vel; //Error
+	if(mes_vel < des_vel){
+		r = r + ramp_rate; //Ramp up
+
+		if(r > des_vel){
+			r = des_vel; //Limit if it over shoots the desired
+		}
+	}
+	else if(mes_vel > des_vel){
+		r = r - ramp_rate; //Ramp down
+
+		if(r < des_vel){
+			r = des_vel; //Limit if it under shoots the desired
+		}
+	}
+
+
+	e = r - mes_vel; //Error
 	I_Term = I_Term + e * T2; //Previous error + error*time step, doesnt work with period for some reason
 	D_Term = (e - e_Prev) / T2; //Slope
 	e_Prev = e; //Previous Error
@@ -385,36 +389,37 @@ int PID_Control0() {
 
 	u = e*Kp + I_Term*Ki + D_Term*Kd;
 	u = u/256;//u*0.00008/256;
+	des_vel_prev = des_vel; //Set the previous desired value to the current
 
-	//Limit u if it is too large
 	if (u > 0x70) u = 0x70;//Limit Output if too large
 
-	//if(u >= 0) Dir = 1; else Dir = 0;
 
 	return u;
 }
 
 int PID_Control1() {
-	test_count++;
-	des_vel2 = 0x10;
 
-	if(test_count < 100000){
-		des_vel2 = 0xBF;
-	}
-	if(test_count < 200000){
-		des_vel2 = 0xBF;
-		GPIOB_PCOR |= (1 << 9); //Change motor direction
-	}
-	if(test_count < 300000){
-		GPIOB_PSOR |= (1 << 9); //Change motor direction
-	}
-	if(test_count >= 300000){
-		test_count = 0;
-	}
 
+	des_vel2 = 0x70;
 	mes_vel2 = (2 * 3 * 2000000) / (1398 * T3); //Attempting to get around floating point error T*1us
+	ramp_rate2 = (des_vel2 - des_vel_prev2) / (T3*5); //Ramp input over 5 function calls
 
-	e2 = des_vel2 - mes_vel2; //Error
+	if(mes_vel2 < des_vel2){
+		r2 = r2 + ramp_rate2; //Ramp up
+
+		if(r2 > des_vel2){
+			r2 = des_vel2; //Limit if it over shoots the desired
+		}
+	}
+	else if(mes_vel2 > des_vel2){
+		r2 = r2 - ramp_rate2; //Ramp down
+
+		if(r2 < des_vel2){
+			r2 = des_vel2; //Limit if it under shoots the desired
+		}
+	}
+
+	e2 = r2 - mes_vel2; //Error
 	I_Term2 = I_Term + e2 * T3; //Previous error + error*time step, doesnt work with period for some reason
 	D_Term2 = (e2 - e_Prev2) / T3; //Slope
 	e_Prev2 = e2; //Previous Error
@@ -425,11 +430,10 @@ int PID_Control1() {
 
 	u2 = e2*Kp + I_Term2*Ki + D_Term2*Kd;
 	u2 = u2/256; //Divide by 256 to make it between 0 & 0xFF
+	des_vel_prev2 = des_vel2; //Set the previous desired value to the current
 
-	//Limit u if it is too large
 	if (u2 > 0x70) u2 = 0x70;//Limit Output if too large
 
-	//if(u >= 0) Dir = 1; else Dir = 0;
 
 	return u2;
 }
@@ -503,7 +507,7 @@ int main(void) {
 	init_direction();
 	//init_led();
 
-	UART_Interface_Init(9600);
+	//UART_Interface_Init(9600);
 
 	T1_Prev = TPM0_CNT; //Initial TPM0 Value
 	T2_Prev = TPM0_CNT; //Initial TPM0 Value
@@ -512,9 +516,9 @@ int main(void) {
 
 
 	for (;;) {
-		UART0_Putchar(e);
-		UART0_Putchar(',');
-		UART0_Putchar(e2);
+		//UART0_Putchar(e);
+		//UART0_Putchar(',');
+		//UART0_Putchar(e2);
 	}
 
 	return 0;
