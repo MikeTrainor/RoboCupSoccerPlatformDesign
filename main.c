@@ -360,6 +360,9 @@ int PID_Control0() {
 
 	des_vel = 0x70;//Set the desired value
 	mes_vel = (2 * 3 * 2000000) / (1398 * T2); //Attempting to get around floating point error T*1us
+	if(T2 == 0){
+		mes_vel = 0; //Accounting for the case of having desired velocity equal to zero
+	}
 	ramp_rate = (des_vel - des_vel_prev) / (T2*5); //Ramp input over 5 function calls
 
 	if(mes_vel < des_vel){
@@ -384,7 +387,7 @@ int PID_Control0() {
 	e_Prev = e; //Previous Error
 	if (I_Term < I_Term_Min) //Checking for Integral Windup
 		I_Term = I_Term_Min;
-	if (I_Term > I_Term_Max)
+	if (I_Term > I_Term_Max) //0xFF is the max maybe?
 		I_Term = I_Term_Max;
 
 	u = e*Kp + I_Term*Ki + D_Term*Kd;
@@ -402,6 +405,9 @@ int PID_Control1() {
 
 	des_vel2 = 0x70;
 	mes_vel2 = (2 * 3 * 2000000) / (1398 * T3); //Attempting to get around floating point error T*1us
+	if(T3 == 0){
+		mes_vel2 = 0; //Accounting for the case of having desired velocity equal to zero
+	}
 	ramp_rate2 = (des_vel2 - des_vel_prev2) / (T3*5); //Ramp input over 5 function calls
 
 	if(mes_vel2 < des_vel2){
@@ -425,7 +431,7 @@ int PID_Control1() {
 	e_Prev2 = e2; //Previous Error
 	if (I_Term2 < I_Term_Min) //Checking for Integral Windup
 		I_Term2 = I_Term_Min;
-	if (I_Term2 > I_Term_Max)
+	if (I_Term2 > I_Term_Max) //0xFF is the max maybe?
 		I_Term2 = I_Term_Max;
 
 	u2 = e2*Kp + I_Term2*Ki + D_Term2*Kd;
@@ -438,20 +444,29 @@ int PID_Control1() {
 	return u2;
 }
 
+//Input Delay length in ms
 void init_delay() {
-	//Init TPM2
-	SIM_SCGC6 |= SIM_SCGC6_TPM2_MASK; // Enable TPM2
 
-	//TPM2_C0SC = (TPM_CnSC_MSB_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 0 mode as Center Aligned PWM mode
-	TPM2_MOD = 0x9;
-	TPM2_SC = (uint32_t) ((TPM2_SC & (uint32_t) ~(uint32_t) (
-	TPM_SC_DMA_MASK |
-	TPM_SC_CPWMS_MASK | TPM_SC_CMOD(0x02) | TPM_SC_PS(0x04))) | (uint32_t) (
-	TPM_SC_TOF_MASK | TPM_SC_CMOD(0x01) | TPM_SC_PS(0x03)));
+    SIM_SCGC5 |= SIM_SCGC5_LPTMR_MASK;  // Clock Enabled
+    LPTMR0_CSR = 0;                     // Reset LPTMR settings
+   // LPTMR0_CMR = length_ms;             // Set compare value (in ms)
+
+    // Use 1kHz LPO with no prescaler
+    LPTMR0_PSR = LPTMR_PSR_PCS(1) | LPTMR_PSR_PBYP_MASK;
 
 }
-//This function delays by input*1us
-int delay() {
+
+//Input Delay length in ms
+int delay(unsigned int length_ms) {
+
+	LPTMR0_CMR = length_ms;             // Set compare value (in ms)
+
+    // Start the timer and wait for it to reach the compare value
+    LPTMR0_CSR = LPTMR_CSR_TEN_MASK;
+
+    while (!(LPTMR0_CSR & LPTMR_CSR_TCF_MASK)){}
+
+    LPTMR0_CSR = 0; //Turn off timer
 
 }
 
