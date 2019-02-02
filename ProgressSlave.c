@@ -669,12 +669,8 @@ void RF_Interrupt(){
 
 void PORTD_IRQHandler(void){
 	char PTD_staus = GPIOD_PDIR;
-
-	if (PTD_staus & ~(NRF_IRQ)){
-		RF_Interrupt();
-
-	}
-
+	RF_Interrupt();
+	PORTD_PCR5 |= PORT_PCR_ISF_MASK //Reset Interrupt Status Flag
 }
 
 
