@@ -670,7 +670,7 @@ void RF_Interrupt(){
 void PORTD_IRQHandler(void){
 	char PTD_staus = GPIOD_PDIR;
 	RF_Interrupt();
-	PORTD_PCR5 |= PORT_PCR_ISF_MASK //Reset Interrupt Status Flag
+	PORTD_PCR5 |= PORT_PCR_ISF_MASK; //Reset Interrupt Status Flag
 }
 
 
