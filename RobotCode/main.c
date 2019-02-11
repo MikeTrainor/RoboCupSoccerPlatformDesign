@@ -45,6 +45,7 @@
 
 // Global Variables
 unsigned int des_vel, mes_vel, des_vel_prev, des_vel2, mes_vel2, des_vel_prev2;
+unsigned int des_pos, mes_pos, mes_pos_prev, des_pos2, mes_pos2, des_pos_prev, des_pos_prev2;
 unsigned int e, e2, e_Prev = 0, e_Prev2 = 0;
 unsigned int P_Term, I_Term, D_Term, P_Term2, I_Term2, D_Term2;
 unsigned int I_Term_Min = 0, I_Term_Max = 5;
@@ -61,6 +62,8 @@ unsigned int direction = 0, direction2 = 0; //Values for direction
 unsigned int test_count = 0, test_count2 = 0; //Test Variables
 unsigned int ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
 int quad_count1 = 0, quad_count2 = 0;
+int pulses1 = 0, pulses2 = 0;
+int L1,L2;
 
 //PWM Service Routine
 void TPM1_IRQHandler() {
@@ -103,6 +106,7 @@ void TPM0_IRQHandler() {
 
 	if (TPM0_STATUS & TPM_STATUS_CH0F_MASK) {
 
+		pulses2++; //Increment the number of pulses for encoder 2
 		T3_Current = TPM0_C0V; //Current count value
 
 		if(T3_Current > T3_Prev){
@@ -191,6 +195,7 @@ void TPM0_IRQHandler() {
 
 	if (TPM0_STATUS & TPM_STATUS_CH3F_MASK) {
 
+		pulses1++; //Increment the number of pulses for encoder 1
 		T2_Current = TPM0_C3V; //Current Time
 
 		if(T2_Current > T2_Prev){
@@ -223,6 +228,7 @@ void TPM0_IRQHandler() {
 	else{
 		direction2 = 0;
 	}
+
 
 }
 
@@ -359,7 +365,7 @@ int PID_Control0() {
 
 
 	des_vel = 0x70;//Set the desired value
-	mes_vel = (2 * 3 * 2000000) / (1398 * T2); //Attempting to get around floating point error T*1us
+	mes_vel = (2 * 3 * 2000000) / (700 * T2); //Attempting to get around floating point error T*1us, 1398 may need to be 700 instead
 	if(T2 == 0){
 		mes_vel = 0; //Accounting for the case of having desired velocity equal to zero
 	}
@@ -396,7 +402,6 @@ int PID_Control0() {
 
 	if (u > 0x70) u = 0x70;//Limit Output if too large
 
-
 	return u;
 }
 
@@ -404,7 +409,7 @@ int PID_Control1() {
 
 
 	des_vel2 = 0x70;
-	mes_vel2 = (2 * 3 * 2000000) / (1398 * T3); //Attempting to get around floating point error T*1us
+	mes_vel2 = (2 * 3 * 2000000) / (700 * T3); // T*1us
 	if(T3 == 0){
 		mes_vel2 = 0; //Accounting for the case of having desired velocity equal to zero
 	}
@@ -440,7 +445,93 @@ int PID_Control1() {
 
 	if (u2 > 0x70) u2 = 0x70;//Limit Output if too large
 
+	pulses2 = 0;//Resest the number of pulses
+	return u2;
+}
 
+int PID_Position0(){
+
+	des_pos = 0x70;//Set the desired value
+	mes_pos = (2 * 3 * 7 * pulses1) / (700); //Measured Position
+	if(T2 == 0){
+		mes_pos = 0; //Accounting for the case of having desired velocity equal to zero
+	}
+	ramp_rate = (des_pos - des_pos_prev) / (T2*5); //Ramp input over 5 function calls
+
+	if(mes_pos < des_pos){
+		r = r + ramp_rate; //Ramp up
+
+		if(r > des_pos){
+			r = des_pos; //Limit if it over shoots the desired
+		}
+	}
+	else if(mes_pos > des_pos){
+		r = r - ramp_rate; //Ramp down
+
+		if(r < des_pos){
+			r = des_pos; //Limit if it under shoots the desired
+		}
+	}
+
+
+	e = r - mes_pos; //Error
+	I_Term = I_Term + e * T2; //Measured Position
+	D_Term = (e - e_Prev) / T2; //Slope
+	e_Prev = e; //Previous Error
+	if (I_Term < I_Term_Min) //Checking for Integral Windup
+		I_Term = I_Term_Min;
+	if (I_Term > I_Term_Max) //0xFF is the max maybe?
+		I_Term = I_Term_Max;
+
+	u = e*Kp + I_Term*Ki + D_Term*Kd;
+	u = u/256;//u*0.00008/256;
+	des_pos_prev = des_pos; //Set the previous desired value to the current
+
+	if (u > 0x70) u = 0x70;//Limit Output if too large
+
+	pulses1 = 0;//Resest the number of pulses
+	return u;
+}
+
+int PID_Position1(){
+	des_pos2 = 0x70;
+	mes_pos2 = (2 * 3 * 7 * pulses2) / (700); // T*1us
+	if(T3 == 0){
+		mes_pos2 = 0; //Accounting for the case of having desired velocity equal to zero
+	}
+	ramp_rate2 = (des_pos2 - des_pos_prev2) / (T3*5); //Ramp input over 5 function calls
+
+	if(mes_pos2 < des_pos2){
+		r2 = r2 + ramp_rate2; //Ramp up
+
+		if(r2 > des_pos2){
+			r2 = des_pos2; //Limit if it over shoots the desired
+		}
+	}
+	else if(mes_pos2 > des_pos2){
+		r2 = r2 - ramp_rate2; //Ramp down
+
+		if(r2 < des_pos2){
+			r2 = des_pos2; //Limit if it under shoots the desired
+		}
+	}
+
+	e2 = r2 - mes_pos2; //Error
+	I_Term2 = I_Term + e2 * T3; //Previous error + error*time step, doesnt work with period for some reason
+	D_Term2 = (e2 - e_Prev2) / T3; //Slope
+	e_Prev2 = e2; //Previous Error
+	if (I_Term2 < I_Term_Min) //Checking for Integral Windup
+		I_Term2 = I_Term_Min;
+	if (I_Term2 > I_Term_Max) //0xFF is the max maybe?
+		I_Term2 = I_Term_Max;
+
+	u2 = e2*Kp + I_Term2*Ki + D_Term2*Kd;
+	u2 = u2/256; //Divide by 256 to make it between 0 & 0xFF
+	des_pos_prev2 = des_pos2; //Set the previous desired value to the current
+
+	if (u2 > 0x70) u2 = 0x70;//Limit Output if too large
+
+	pulses2 = 0;//Resest the number of pulses
 	return u2;
 }
 
@@ -512,6 +603,7 @@ void UART0_Putchar(char ch){
 		UART0_D=ch;
 
 }
+
 
 
 int main(void) {
