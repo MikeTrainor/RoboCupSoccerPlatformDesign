@@ -7,49 +7,28 @@ import os
 from PIL import Image
 import glob
 import cv2
-import imutils
 
 class robotClass:
     def __init__(self, pos = [], team = '-no team!-', ID = '-no ID!-'):
-        # centre coordinates
-        self.pos = pos        
-        self.team = team
-        self.angle = 0
-        self.ID = ID
+        self.pos = pos # centre coordinates [x,y]    
+        self.team = team # team 'B'  or 'Y'
+        self.angle = 0 # angle of orientation 
+        self.ID = ID # ID of robot on a team
         # ID markings
         self.circles = [] # [x,y,color]
 
-    def newMarking(self, circle = [0,0,[0,0,0]]):
+    # this is a method to add a new circle for IDing the robot
+    def newMarking(self, circle = [0,0,[0,0,0]]): 
         self.circles.append(circle)
 
 class ballClass:
     def __init__(self, pos = []):
         self.pos = pos
 
-roboList = []
-roboIDmarks = []
-ball = 0
-IDdRobots = []
-
-# closestBot()
-# x, Nov. yth, 2018
-# This function identifies the nearest robot and returns the index of the robot within
-# the list of robots (roboList) which the marking belongs to.
-#              (input) -> (function) -> (output)
-#               [x,y] -> closestBot() -> index
-# v1:
-# Unfinished. Needs distance calculations corrected, maybe a threshold for how close it
-# needs to be...
-def closestBot(circle):
-    closestDist = 99999
-
-    # Use Euclidean distance and cycle through roboList, comparing each of the
-    # "pos" variables to the circle's [x,y] passed into the function
-    for idx, pos in enumerate(roboList):
-        newDist = dist.euclidean([circle[1],circle[2]],pos)
-        if newDist < closestDist:
-            closestDist = newDist
-            closestIdx = idx
+roboList = []       # holds all robots currently seen- resets every loop
+roboIDmarks = []    # holds all potential robot ID marks seen ('G' or 'P')
+ball = 0            # holds ball position in ballClass type object
+IDdRobots = []      # potentially used for previous state- probably updated every loop
 
 # colorID()
 # E.H., Nov. 24th, 2018
@@ -112,6 +91,10 @@ def IDcircle(img, circle):
     elif (color == 'O'):
         ball = ballClass([x,y])
 
+# assignIDmarks()
+# E.H., Dec, 2018
+# This function cycles through the globally stored roboIDmarks list and assigns them to the
+# closest available robot, provided they don't already have 4 assigned
 def assignIDmarks():
     if isinstance(roboList, type(None)) == 0:
         # Assign each robot its four closest marks
@@ -156,6 +139,12 @@ def assignIDmarks():
     else:
         print("No robots detected, but there are ID marks..?")
 
+# RoboID()
+# E.H., Jan, 2019
+# This function reads the sorted robot.circles list and assigns an ID (robot.ID = x)
+# to the robot. If the IDs are not properly sorted, this will not work
+# v1:
+# Doesn't have all IDs implemented yet
 def RoboID():
     for robot in roboList:
         if len(robot.circles) == 4:
@@ -183,30 +172,6 @@ def RoboID():
                         elif robot.circles[3][2] == 'G':
                             robot.ID = 'ID8'
 
-
-    #for robot in roboList:
-    #    robot.ID = 'Unidentified!'
-    #    pink = 0
-    #    green = 0
-    #    for mark in robot.circles:
-    #        if mark[2] == 'P':
-    #            pink += 1
-    #        elif mark[2] == 'G':
-    #            green += 1
-    #    if pink == 4:
-    #        robot.ID = 'Pink'
-    #        IDdRobots[index] = 3
-    #    elif green == 4:
-    #        robot.ID = 'Green'
-    #        IDdRobots[index] = 1
-    #    elif (pink == 2) & (green == 2):
-    #        robot.ID = 'Green and Pink'
-    #        IDdRobots[index] = 2
-
-    #    break ############################### This should be deleted in an actual implementation, but for ##################
-    #                      ################### the purpose of testing, it has been included to prevent weird stuff ##########
-
-    #return
 
 #topIDs = []
 #bottomIDs = []
@@ -351,42 +316,25 @@ def angle():
 
 
 def main():
-    ##First part: Recognizing circles in sample image
-
-    #filename = 'T:\\Documents\\dataPatRec\\'
-    #title = input('Name of files?')
-    #filename = filename + title
-    #images = []
-    #for ii in range(1,31):
-    #    im=cv2.imread(filename+str(ii)+'.jpg')
-    #    images.append(im)
-
-    #truthlist = [1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3]
-
-    #            cv2.circle(img,(mark[0],mark[1]),10,(0,0,0),5)
-    #        cv2.imshow("robot by robot circles", img)
-    #        cv2.waitKey()
-    
-    #cv2.waitKey()
-    #cv2.destroyAllWindows()
+    # Declaring global variables so they can be cleared every loop
     global roboList
     global roboIDmarks
     global circles 
     global ball
     global IDdRobots
 
-    #Second part: recognizing circles in stream of images
-
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0) # 0 if your pc doesn't have a webcam, probably 1 if it does
 
     while(True):
-        ret,frame = cap.read()
+        ret,frame = cap.read() # reading the video capture into a dummy var and frame
         
+        # Reinitializing robot data (prevents buildup of data accross frames)
         roboList = []
         roboIDmarks= []
         circles = []
         ball = []
 
+        # Histogram equalization for colors (haven't tested with this)
         #img_yuv = cv2.cvtColor(ii, cv2.COLOR_BGR2YUV)
 
         ### equalize the histogram of the Y channel
@@ -395,100 +343,87 @@ def main():
         ### convert the YUV image back to RGB format
         #frame_yuv = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
+        # HSV color masking
         hsv= cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
 
         lower_rangeG = np.array([0,100,100])
         upper_rangeG = np.array([255,255,255])
-        #lower_rangeBR = np.array([85,50,50])
-        #upper_rangeBR = np.array([190,255,255])
 
-        mask1 = cv2.inRange(hsv, lower_rangeG, upper_rangeG)
-        #mask2= cv2.inRange(hsv, lower_rangeG, upper_rangeG)
-        result1 = cv2.bitwise_and(frame,frame,mask=mask1)
-        cv2.imshow("masked image",result1)
-        # result2 = cv2.bitwise_and(frame,frame,mask=mask2)
-        #FinalResult = cv2.bitwise_or(result1,result2)
-
+        mask = cv2.inRange(hsv, lower_rangeG, upper_rangeG) # mask for original frame with only good color
+        result = cv2.bitwise_and(frame,frame,mask=mask)
+        cv2.imshow("masked image",result)
   
-        #hsv_out = np.bitwise_or(FinalResult, edged[:,:,np.newaxis])
-        hsv_out_gray= cv2.cvtColor(result1, cv2.COLOR_BGR2GRAY)
-        cv2.imshow("masked image2",hsv_out_gray)
-       # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,20,param1=20,param2=13,minRadius=20,maxRadius=50)
-        #cstream = copy.deepcopy(result1)
-        #cv2.imshow("onetwo",cstream)
-        cv2.waitKey(1)
-        #cv2.imshow("filtered",result1)
-        # Some notes on the HoughCircles function:
-        #  - by adjusting param2, we can alter the threshold for the circles recognized
-        #  - adjusting param1 does not seem to have an effect on the result as of now
-        #  - the "1" scales the image for the function, "2" would scale down by 2
-        # circles = cv2.HoughCircles(gray,cv2.HOUGH_GRADIENT,1,minDist = 20,
-        #                           param1=50,param2=40,minRadius=15,maxRadius=100)
+        hsv_out_gray= cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
 
-        img = copy.deepcopy(frame)
+        # consider implementing gaussian blur here
+
+        # Some notes on the HoughCircles function:
+        #  Utilizes edge detection to draw tangent lines, recognizing a circle where perpendicular lines to tangents
+        #  meet, depending on the intensity of the intersecting tangent lines.
+        #  param1: higher threshold for Canny edge detection (lower is half of this)
+        #  param2: accumulator threshold for circle center detection- i.e. the lower it is, the less circular an object
+        #          needs to be to be recognized as a circle
+        #  minDist: Specifies minimum distance between circles (the 4th input to the function)
+        #  
+        # from documentation: cv2.HoughCircles(image, method, dp, minDist[, circles[, param1[, param2[, minRadius[, maxRadius]]]]]) → circles
+        circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist = 20,param1=20,param2=13,minRadius=20,maxRadius=50)
+
+        cv2.waitKey(1) # cv2.waitKey() is required to display images- waits 1 millisecond here
+
+        img = copy.deepcopy(frame) # Sometimes if you copy stuff in Python, changes made to a copied variable end up in original
+                                   # which necessitates a deepcopy
 
         if isinstance(circles, type(None)) == 0:
             for circle in circles[0,:]:
-                IDcircle(img, circle)
-
+                IDcircle(img, circle) # ID all the circles recognized by color
                 # draw the outer circle
                 cv2.circle(img,(circle[0],circle[1]),circle[2],(0,255,0),2)
                 # draw the center of the circle
                 cv2.circle(img,(circle[0],circle[1]),2,(0,0,255),3)
-                #cv2.imshow("circles on image", img)
-                #cv2.waitKey()
-            #cv2.imshow("masked", result1)
-            # Assign the ID marks observed to their appropriate robot
+
+            
             if isinstance(roboIDmarks, type(None)) == 0:
-                assignIDmarks()
-                angle()
-                RoboID()
+                assignIDmarks() # Assign the ID marks observed to their appropriate robot
+                angle()         # Determine angle of robots seen
+                RoboID()        # Give robots seen an ID
 
             
             #if isinstance(ball, type(None)) == 0:
             #    print('Ball found at ',ball)
 
-            # Mark the robot circles seen robot by robot
+            # Draw the robot circles seen robot by robot
             if isinstance(roboList, type(None)) == 0:
                 for robot in roboList:
-                    #reassignIDs()
-                    
+                    #reassignIDs() <- move this somewhere else- this isn't a good place for it
 
+                    # Draw a black circle on the centre of the robot
                     cv2.circle(img,(robot.pos[0],robot.pos[1]),10,(0,0,0),5)
                     if isinstance(robot.angle, type(None)) == 0:
+                        # Display the robot's angle
                         cv2.putText(img, str(round(robot.angle,1)), (robot.pos[0]+ 100, robot.pos[1] + 130), 
                                     cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 5)
+                        # Display the robot's position
                         cv2.putText(img, str(robot.pos), (robot.pos[0]+ 100, robot.pos[1] + 100), 
                                     cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 5)
+                        # Display the robot's ID
                         cv2.putText(img, robot.ID, (robot.pos[0]+ 100, robot.pos[1] + 70), 
                                     cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 5)
                     for mark in robot.circles:
-                        cv2.circle(img,(mark[0],mark[1]),10,(0,0,0),5)
-
-                    #print('There is a '+robot.team+' robot with these ID circles:\n')
-                    for circle in robot.circles:
-                        print(circle)
-                    #robotIDstring = '... which indicates it is a '+robot.ID+' robot'
-                    #print(robotIDstring)
-                #cv2.imshow("original stream", frame)
-            
+                        # Draw a black circle on every ID mark
+                        cv2.circle(img,(mark[0],mark[1]),10,(0,0,0),5)  
 
         else:
             print("no circles detected")
 
+        # Display drawn on frame and original frame
         cv2.imshow('circles on stream',img)
         cv2.imshow('original stream',frame)
         cv2.waitKey(250)
-        if cv2.waitKey(1) & 0xFF == ord('\r'):
+        if cv2.waitKey(1) & 0xFF == ord('\r'): # if enter is pressed, stop running
             break
 
 
     cv2.destroyAllWindows(0)
-
-        #if cv2.waitKey(1) & 0xFF == ord('\r'):
-        #    #cv2.destroyAllWindows()
-        #    break
  
  
 if __name__== "__main__":
@@ -496,37 +431,8 @@ if __name__== "__main__":
 
 
 
-            #if isinstance(roboList, type(None)) == 0:
-        #    print('ROBOT FOUND!!!!!!!!!!!')
-        #    for robot in roboList:
-        #        print('There is a ',robot.team,' robot with these ID circles:\n')
-        #        for circle in robot.circles:
-        #            print(circle[0],circle[1],circle[3])
 
-        #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        ## smooth it, otherwise a lot of false circles may be detected
-        ## ^This is likely why so many crazy circles happened- not enough
-        ## blurring of the image being received by the camera
-        #blurred = cv2.GaussianBlur(gray, (9,9), 0)
-        #circles = cv2.HoughCircles(gray,cv2.HOUGH_GRADIENT,1,20,
-        #                           param1=50,param2=30,minRadius=5,maxRadius=50)
-
-        ## so we can have streams of both original and circled version
-        #cstream = copy.deepcopy(frame)
-
-        ## This if statement prevents crashing when there are no circles recognized
-        #if isinstance(circles, type(None)) == 0:
-        #    for circle in circles[0,:]:
-        #        # circle(image,(x,y),radius,color,thickness?)
-        #        # draw the outer circle
-        #        cv2.circle(cstream,(circle[0],circle[1]),circle[2],(0,255,0),2)
-        #        # draw the center of the circle
-        #        cv2.circle(cstream,(circle[0],circle[1]),2,(0,0,255),3)
-
-        #cv2.imshow("circles on stream", cstream)
-        #cv2.imshow("original stream", frame)
-
-
+# OLD CODE: has some dummy robot positions that might be useful
 #def main():
 #    # Old top facing one
 #    #roboList.append(robotClass([400,400],'B'))
