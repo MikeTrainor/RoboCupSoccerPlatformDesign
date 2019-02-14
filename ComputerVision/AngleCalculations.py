@@ -95,49 +95,49 @@ def IDcircle(img, circle):
 # E.H., Dec, 2018
 # This function cycles through the globally stored roboIDmarks list and assigns them to the
 # closest available robot, provided they don't already have 4 assigned
-def assignIDmarks():
-    if isinstance(roboList, type(None)) == 0:
+def assignIDmarks(robot):
+    #if isinstance(roboList, type(None)) == 0:
         # Assign each robot its four closest marks
-        for robot in roboList:
-            closestMarks = [0,0,0,0] # indices of the closest four marks to the robot center
-                                     # [index in roboIDmarks, euclidean distance]
-            furthestMark = [0,0] # [index in closestMarks, euclidean distance]
+        #for robot in roboList:
+    closestMarks = [0,0,0,0] # indices of the closest four marks to the robot center
+                                # [index in roboIDmarks, euclidean distance]
+    furthestMark = [0,0] # [index in closestMarks, euclidean distance]
 
-            # Assign this robot its four closest marks
-            for i, mark in enumerate(list(roboIDmarks)):
-                markDist = dist.euclidean([mark[0],mark[1]],robot.pos)
+    # Assign this robot its four closest marks
+    for i, mark in enumerate(list(roboIDmarks)):
+        markDist = dist.euclidean([mark[0],mark[1]],robot.pos)
 
-                # If there aren't already four marks given to the robot, 
-                # just give it whatever is available in order to initialize robot.circles[]
-                if len(robot.circles) < 4:
-                    robot.newMarking(mark)
-                    closestMarks[i] = [i, markDist]
-                    if markDist > furthestMark[1]:
-                        furthestMark = [i, markDist]
+        # If there aren't already four marks given to the robot, 
+        # just give it whatever is available in order to initialize robot.circles[]
+        if len(robot.circles) < 4:
+            robot.newMarking(mark)
+            closestMarks[i] = [i, markDist]
+            if markDist > furthestMark[1]:
+                furthestMark = [i, markDist]
 
-                # If there is a closer value than the furthest currently in robot.circles[]
-                # replace the current furthest with this new one 
-                elif markDist < furthestMark[1]:
-                    robot.circles[furthestMark[0]] = mark
-                    closestMarks[furthestMark[0]] = [i, markDist]
+        # If there is a closer value than the furthest currently in robot.circles[]
+        # replace the current furthest with this new one 
+        elif markDist < furthestMark[1]:
+            robot.circles[furthestMark[0]] = mark
+            closestMarks[furthestMark[0]] = [i, markDist]
 
-                    furthestMark[1] = markDist
+            furthestMark[1] = markDist
 
-                    # redetermine the furthest mark within the current closest marks
-                    for j, qark in enumerate(closestMarks):
-                        if qark[1] > furthestMark[1]:
-                            furthestMark = [j, qark[1]]
+            # redetermine the furthest mark within the current closest marks
+            for j, qark in enumerate(closestMarks):
+                if qark[1] > furthestMark[1]:
+                    furthestMark = [j, qark[1]]
                 
-            # * The below code was intended to shorten the list of circles in order to 
-            # improve efficiency, however it had an error due to the index provided by
-            # "wark[0]" being incorrect after the element in the previous iteration 
-            # was deleted... *
-            ## Remove the marks that were assigned to a robot- this will potentially make 
-            ## assigning the rest of the marks much quicker with larger numbers of robots
-            #for wark in closestMarks:
-            #    del roboIDmarks[wark[0]]
-    else:
-        print("No robots detected, but there are ID marks..?")
+    # * The below code was intended to shorten the list of circles in order to 
+    # improve efficiency, however it had an error due to the index provided by
+    # "wark[0]" being incorrect after the element in the previous iteration 
+    # was deleted... *
+    ## Remove the marks that were assigned to a robot- this will potentially make 
+    ## assigning the rest of the marks much quicker with larger numbers of robots
+    #for wark in closestMarks:
+    #    del roboIDmarks[wark[0]]
+    #else:
+    #    print("No robots detected, but there are ID marks..?")
 
 # RoboID()
 # E.H., Jan, 2019
@@ -145,174 +145,181 @@ def assignIDmarks():
 # to the robot. If the IDs are not properly sorted, this will not work
 # v1:
 # Doesn't have all IDs implemented yet
-def RoboID():
-    for robot in roboList:
-        if len(robot.circles) == 4:
-            if robot.circles[0][2] == 'P':
-                if robot.circles[1][2] == 'P':
-                    if robot.circles[2][2] == 'P':
-                        if robot.circles[3][2] == 'P':
-                            robot.ID = 'ID9'
-                        elif robot.circles[3][2] == 'G':
-                            robot.ID = 'ID4'
-                    elif robot.circles[2][2] == 'G':
-                        if robot.circles[3][2] == 'P':
-                            robot.ID = 'ID3'
-                        elif robot.circles[3][2] == 'G':
-                            robot.ID = 'ID4'
-                elif robot.circles[1][2] == 'G':
-                    if robot.circles[2][2] == 'P':
-                        if robot.circles[3][2] == 'P':
-                            robot.ID = 'ID5'
-                        elif robot.circles[3][2] == 'G':
-                            robot.ID = 'ID6'
-                    elif robot.circles[2][2] == 'G':
-                        if robot.circles[3][2] == 'P':
-                            robot.ID = 'ID7'
-                        elif robot.circles[3][2] == 'G':
-                            robot.ID = 'ID8'
+def RoboID(robot):
+    #for robot in roboList:
+    if len(robot.circles) == 4:
+        if robot.circles[0][2] == 'P':
+            if robot.circles[1][2] == 'P':
+                if robot.circles[2][2] == 'P':
+                    if robot.circles[3][2] == 'P':
+                        robot.ID = 'ID9'
+                    elif robot.circles[3][2] == 'G':
+                        robot.ID = 'ID4'
+                elif robot.circles[2][2] == 'G':
+                    if robot.circles[3][2] == 'P':
+                        robot.ID = 'ID3'
+                    elif robot.circles[3][2] == 'G':
+                        robot.ID = 'ID4'
+            elif robot.circles[1][2] == 'G':
+                if robot.circles[2][2] == 'P':
+                    if robot.circles[3][2] == 'P':
+                        robot.ID = 'ID5'
+                    elif robot.circles[3][2] == 'G':
+                        robot.ID = 'ID6'
+                elif robot.circles[2][2] == 'G':
+                    if robot.circles[3][2] == 'P':
+                        robot.ID = 'ID7'
+                    elif robot.circles[3][2] == 'G':
+                        robot.ID = 'ID8'
 
+# angle()
+# E.H., Jan, 2019
+# This function determines the angle of a passed robot using the IDs assigned to the robot
+# by observing relative positions of said IDs. The angle determined is assigned to the robot
+# at the end of the function, and reassignIDs() is called at the end to allow for identification
+# of the robot.
+#              (input) -> (function) -> (output)
+#               ID marks -> angle() -> robot.angle
+def angle(robot):	
+    topIDs = [] # i.e. the two circles on the flat end of the robot
+    bottomIDs = []
+    theta1 = 999 # An impossible number for if statements later
+    theta2 = 999
 
-#topIDs = []
-#bottomIDs = []
-def angle():	
-    #angles = []	
-    #global topIDs
-    #global bottomIDs
-    for robot in roboList:
-        topIDs = []
-        bottomIDs = []
-        theta1 = 0
-        theta2 = 0
-        #thing = range(len(robot.circles)-1)
-        for ii in range(len(robot.circles)-1):
-            #thing2=range(ii + 1, len(robot.circles))
-            for jj in range(ii + 1, len(robot.circles)):
-                temp1 = robot.circles[ii]
-                temp2 = robot.circles[jj]
+    # Uses the cosine law to figure out the angle every possible combo of ID circles makes
+    # with the center of the robot (team ID), assigning to top or bottom IDs based on this angle
+    for ii in range(len(robot.circles)-1):
+        for jj in range(ii + 1, len(robot.circles)):
+            temp1 = robot.circles[ii]
+            temp2 = robot.circles[jj]
 
-                # Determining distance between the different IDs
-                a = dist.euclidean([temp1[0],temp1[1]],robot.pos) # Distance from ID 1 to centre
-                b = dist.euclidean([temp2[0],temp2[1]],robot.pos) # Distance from ID 2 to centre
-                c = dist.euclidean([temp1[0],temp1[1]],[temp2[0],temp2[1]]) # Distance from ID 1 to ID 2
+            # Determining distance between the different IDs
+            a = dist.euclidean([temp1[0],temp1[1]],robot.pos) # Distance from ID 1 to centre
+            b = dist.euclidean([temp2[0],temp2[1]],robot.pos) # Distance from ID 2 to centre
+            c = dist.euclidean([temp1[0],temp1[1]],[temp2[0],temp2[1]]) # Distance from ID 1 to ID 2
 
-                theta = math.degrees(math.acos((c**2 - b**2 - a**2)/(-2.0 * a * b)))
+            theta = math.degrees(math.acos((c**2 - b**2 - a**2)/(-2.0 * a * b)))
 
-                if theta > 100 and theta < 130: # Ideally 114.84 degrees
-                    #print("topdots")
-                    topIDs.append(temp1)
-                    topIDs.append(temp2)
-                    #print(topIDs)
-                    #print("w/ centre of ",robot.pos)
-                    #print("and angle of ",theta)
+            if theta > 100 and theta < 130: # Ideally 114.84 degrees
+                topIDs.append(temp1)
+                topIDs.append(temp2)
                      
-                if theta > 45 and theta < 75: # Ideally 65.16 degrees
-                    #print("bottomdots")
-                    bottomIDs.append(temp1)
-                    bottomIDs.append(temp2)
-                    #print(bottomIDs)
-                    #print(theta)
+            if theta > 45 and theta < 75: # Ideally 65.16 degrees
+                bottomIDs.append(temp1)
+                bottomIDs.append(temp2)
 
-                # the other ID pairs will be either ~180 or ~90 degrees...
-        #print("doneloop")
-        if len(topIDs) == 2:
-            xMean = (topIDs[0][0] + topIDs[1][0])/2
-            yMean = (topIDs[0][1] + topIDs[1][1])/2
-            
+            # the other ID pairs will be either ~180 or ~90 degrees
 
-            xDiff = xMean - robot.pos[0]
-            yDiff = yMean - robot.pos[1]
-            # Angle points in the direction the robot is facing
-            theta1 = math.degrees(math.atan2(yDiff,xDiff))
-        else:
-            print("top went wrong...")
+    # Takes the top two IDs and their average position, creating a vector to that point from the
+    # center of the robot which the robot's angle can be derived from
+    if len(topIDs) == 2:
+        xMean = (topIDs[0][0] + topIDs[1][0])/2
+        yMean = (topIDs[0][1] + topIDs[1][1])/2
 
-        if len(bottomIDs) == 2:
-            xMean2 = (bottomIDs[0][0] + bottomIDs[1][0])/2
-            yMean2 = (bottomIDs[0][1] + bottomIDs[1][1])/2
+        xDiff = xMean - robot.pos[0]
+        yDiff = yMean - robot.pos[1]
+        # Angle points in the direction the robot is facing
+        theta1 = math.degrees(math.atan2(yDiff,xDiff))
+    else:
+        print("top went wrong...")
+        
+    # Takes the bottom two IDs and their average position, creating a vector from that point to
+    # the center of the robot which the robot's angle can be derived from
+    # (this is the opposite direction from the other one so the angle will be the same)
+    if len(bottomIDs) == 2:
+        xMean2 = (bottomIDs[0][0] + bottomIDs[1][0])/2
+        yMean2 = (bottomIDs[0][1] + bottomIDs[1][1])/2
 
-            xDiff2 = robot.pos[0] - xMean2
-            yDiff2 = robot.pos[1] - yMean2
-            # Negative for both of these to get an angle that is front facing
-            theta2 = math.degrees(math.atan2(yDiff2,xDiff2))
-        else:
-            print("bottom is wrong")
+        xDiff2 = robot.pos[0] - xMean2
+        yDiff2 = robot.pos[1] - yMean2
+        # Negative for both of these to get an angle that is front facing
+        theta2 = math.degrees(math.atan2(yDiff2,xDiff2))
+    else:
+        print("bottom is wrong")
 
-        if theta2 != 0 and theta1 != 0:
-            xMean = (math.cos(math.radians(theta1)) + math.cos(math.radians(theta2)))/2
-            yMean = (math.sin(math.radians(theta1)) + math.sin(math.radians(theta2)))/2
-            theta = math.degrees(math.atan2(yMean,xMean))
-            robot.angle = theta
-        elif theta2 != 0 and theta1 == 0:
-            theta = theta2
-            robot.angle = theta
-        elif theta2 == 0 and theta1 != 0:
-            theta = theta1
-            robot.angle = theta
-        else:
-            return "ERROR"
+    # Averages the vectors to get a better approx of the true angle
+    if theta2 != 999 and theta1 != 999:
+        xMean = (math.cos(math.radians(theta1)) + math.cos(math.radians(theta2)))/2
+        yMean = (math.sin(math.radians(theta1)) + math.sin(math.radians(theta2)))/2
+        theta = math.degrees(math.atan2(yMean,xMean))
+        robot.angle = theta
 
-        #angles.append(theta)
+    # If one of the vector calcs failed, just take the one that worked
+    elif theta2 != 999 and theta1 == 999:
+        theta = theta2
+        robot.angle = theta
+    elif theta2 == 999 and theta1 != 999:
+        theta = theta1
+        robot.angle = theta
+    else:
+        return "ERROR"
 
-    #def reassignIDs():
-    #    # Assigning individual IDs
-        if len(robot.circles) == 4 and len(topIDs) == 2 and len(bottomIDs) == 2:
-            if theta <= 45 and theta >= -45:
-                if topIDs[0][1] > topIDs[1][1]:
-                    robot.circles[0] = topIDs[1]
-                    robot.circles[1] = topIDs[0]
-                else:
-                    robot.circles[0] = topIDs[0]
-                    robot.circles[1] = topIDs[1]
-                if bottomIDs[0][1] > bottomIDs[1][1]:
-                    robot.circles[2] = bottomIDs[1]
-                    robot.circles[3] = bottomIDs[0]
-                else:
-                    robot.circles[2] = bottomIDs[0]
-                    robot.circles[3] = bottomIDs[1]
-            if theta < 135 and theta > 45:
-                if topIDs[0][0] > topIDs[1][0]:
-                    robot.circles[0] = topIDs[0]
-                    robot.circles[1] = topIDs[1]
-                else:
-                    robot.circles[0] = topIDs[1]
-                    robot.circles[1] = topIDs[0]
-                if bottomIDs[0][0] > bottomIDs[1][0]:
-                    robot.circles[2] = bottomIDs[0]
-                    robot.circles[3] = bottomIDs[1]
-                else:
-                    robot.circles[2] = bottomIDs[1]
-                    robot.circles[3] = bottomIDs[0]
-            if theta < -45 and theta > -135:
-                if topIDs[0][0] > topIDs[1][0]:
-                    robot.circles[0] = topIDs[1]
-                    robot.circles[1] = topIDs[0]
-                else:
-                    robot.circles[0] = topIDs[0]
-                    robot.circles[1] = topIDs[1]
-                if bottomIDs[0][0] > bottomIDs[1][0]:
-                    robot.circles[2] = bottomIDs[1]
-                    robot.circles[3] = bottomIDs[0]
-                else:
-                    robot.circles[2] = bottomIDs[0]
-                    robot.circles[3] = bottomIDs[1]
-            if theta <= -135 or theta >= 135:          # must be "or", as sign swaps at 180
-                if topIDs[0][1] > topIDs[1][1]:
-                    robot.circles[0] = topIDs[0]
-                    robot.circles[1] = topIDs[1]
-                else:
-                    robot.circles[0] = topIDs[1]
-                    robot.circles[1] = topIDs[0]
-                if bottomIDs[0][1] > bottomIDs[1][1]:
-                    robot.circles[2] = bottomIDs[0]
-                    robot.circles[3] = bottomIDs[1]
-                else:
-                    robot.circles[2] = bottomIDs[1]
-                    robot.circles[3] = bottomIDs[0]
+    reassignIDs(robot,topIDs,bottomIDs)
 
-    #print("robot circles: ",robot.circles)
-    #print("with an angle of: ",robot.angle)
-    #print("done this robots circles")
+# reassignIDs()
+# E.H., Jan, 2019
+# This function reassigns the IDs found in a robot depending on the angle the robot
+# is facing. It is helpful to draw out a visualization of this to understand why 
+# certain angles are associated with certain indices in robot.circles
+#              (input) -> (function) -> (output)
+#              angle -> reassignIDs() -> robot.circles (sorted)
+def reassignIDs(robot,topIDs,bottomIDs):
+    # Reassignment of IDs only works if all four have been recognized
+    if len(robot.circles) == 4 and len(topIDs) == 2 and len(bottomIDs) == 2:
+        # I suggest drawing this out if you're having a hard time visualizing it-
+        # see the design document for further detail on which ID is which
+        if robot.angle <= 45 and robot.angle >= -45:
+            if topIDs[0][1] > topIDs[1][1]:
+                robot.circles[0] = topIDs[1]
+                robot.circles[1] = topIDs[0]
+            else:
+                robot.circles[0] = topIDs[0]
+                robot.circles[1] = topIDs[1]
+            if bottomIDs[0][1] > bottomIDs[1][1]:
+                robot.circles[2] = bottomIDs[1]
+                robot.circles[3] = bottomIDs[0]
+            else:
+                robot.circles[2] = bottomIDs[0]
+                robot.circles[3] = bottomIDs[1]
+        if robot.angle < 135 and robot.angle > 45:
+            if topIDs[0][0] > topIDs[1][0]:
+                robot.circles[0] = topIDs[0]
+                robot.circles[1] = topIDs[1]
+            else:
+                robot.circles[0] = topIDs[1]
+                robot.circles[1] = topIDs[0]
+            if bottomIDs[0][0] > bottomIDs[1][0]:
+                robot.circles[2] = bottomIDs[0]
+                robot.circles[3] = bottomIDs[1]
+            else:
+                robot.circles[2] = bottomIDs[1]
+                robot.circles[3] = bottomIDs[0]
+        if robot.angle < -45 and robot.angle > -135:
+            if topIDs[0][0] > topIDs[1][0]:
+                robot.circles[0] = topIDs[1]
+                robot.circles[1] = topIDs[0]
+            else:
+                robot.circles[0] = topIDs[0]
+                robot.circles[1] = topIDs[1]
+            if bottomIDs[0][0] > bottomIDs[1][0]:
+                robot.circles[2] = bottomIDs[1]
+                robot.circles[3] = bottomIDs[0]
+            else:
+                robot.circles[2] = bottomIDs[0]
+                robot.circles[3] = bottomIDs[1]
+        if robot.angle <= -135 or robot.angle >= 135:  # must be "or", as sign swaps at 180
+            if topIDs[0][1] > topIDs[1][1]:
+                robot.circles[0] = topIDs[0]
+                robot.circles[1] = topIDs[1]
+            else:
+                robot.circles[0] = topIDs[1]
+                robot.circles[1] = topIDs[0]
+            if bottomIDs[0][1] > bottomIDs[1][1]:
+                robot.circles[2] = bottomIDs[0]
+                robot.circles[3] = bottomIDs[1]
+            else:
+                robot.circles[2] = bottomIDs[1]
+                robot.circles[3] = bottomIDs[0]
 
 
 def main():
@@ -382,17 +389,18 @@ def main():
                 cv2.circle(img,(circle[0],circle[1]),2,(0,0,255),3)
 
             
-            if isinstance(roboIDmarks, type(None)) == 0:
-                assignIDmarks() # Assign the ID marks observed to their appropriate robot
-                angle()         # Determine angle of robots seen
-                RoboID()        # Give robots seen an ID
+            if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
+                for robot in roboList:
+                    assignIDmarks(robot) # Assign the ID marks observed to their appropriate robot
+                    angle(robot)         # Determine angle of robots seen
+                    RoboID(robot)        # Give robots seen an ID
 
             
             #if isinstance(ball, type(None)) == 0:
             #    print('Ball found at ',ball)
 
             # Draw the robot circles seen robot by robot
-            if isinstance(roboList, type(None)) == 0:
+            #if isinstance(roboList, type(None)) == 0:
                 for robot in roboList:
                     #reassignIDs() <- move this somewhere else- this isn't a good place for it
 
