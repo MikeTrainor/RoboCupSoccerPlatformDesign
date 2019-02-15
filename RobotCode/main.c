@@ -45,28 +45,23 @@
 
 // Global Variables
 int des_vel, mes_vel = 0, des_vel_prev, des_vel2, mes_vel2 = 0, des_vel_prev2;
-int des_pos, mes_pos, mes_pos_prev, des_pos2, mes_pos2, des_pos_prev, des_pos_prev2;
-int e = 0, e2 = 0, e_Prev = 0, e_Prev2 = 0;
-int P_Term, I_Term, D_Term, P_Term2, I_Term2, D_Term2;
-int I_Term_Min = -5, I_Term_Max = 5;
-unsigned int speed_motor0 = 0, speed_motor1 = 0;
+int e = 0, e_Prev = 0, e2 = 0, e_Prev2 = 0;
+int P_Term = 0, I_Term = 0, I_Term2 = 0, D_Term = 0, P_Term2 = 0, D_Term2 = 0;
+int I_Term_Min = -255*1e2, I_Term_Max = 255*1e2;
+int speed_motor0 = 0, speed_motor1 = 0;
 //unsigned int Kp = 100, Kd = 10, Ki = 50; //These Values Come From Mike's MATLAB File
-unsigned int Kp = 100, Kd = 10, Ki = 50;
+int Kp = 2, Kd = 1, Ki = -2;
 unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
 unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
 int u = 0, u2 = 0;
-unsigned int w1, w2, w3, w4;
 unsigned int r = 0, r2 = 0;
-unsigned int count1, count2, count3 = 0, count4;
 unsigned int direction = 0, direction2 = 0; //Values for direction
 unsigned int ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
-int u_max, u2_max;
 int quad_count1 = 0, quad_count2 = 0;
 int pulses1 = 0, pulses2 = 0;
-int L1,L2;
-float dt = 0.01632; //dt is an ideal value calculated from 255/15625
-double test_u2[100], test_e2[150], test_mesvel2[100];
+float dt = 0.001632; //dt is an ideal value calculated from 255/15625
+short test_e2[150];
 int test_count = 0;
 int flag1 = 1, flag2 = 1; //Interrupt flags
 
@@ -90,7 +85,7 @@ void TPM1_IRQHandler() {
 //PWM Service Routine
 void TPM2_IRQHandler() {
 
-	if(flag1){
+	if(flag1 == 1){
 		// PID
 		speed_motor1 = PID_Control1();
 
@@ -114,7 +109,6 @@ void TPM0_IRQHandler() {
 
 		pulses2++; //Increment the number of pulses for encoder 2
 		T3_Current = TPM0_C0V; //Current count value
-		count3++;
 
 		if(T3_Current > T3_Prev){
 			T3 = T3_Current - T3_Prev;//Regular calculation
@@ -135,6 +129,7 @@ void TPM0_IRQHandler() {
 		T3_Prev = T3_Current; //Update Previous to Current
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
 		TPM0_STATUS |= TPM_STATUS_CH0F_MASK; //Reset Channel 0 Event
+		//mes_vel2 = (2 * 3 * 2e6) * (30/3) / (700 * T3); // Motor Speed in RPM at the wheel
 		flag1 = 1; //Set flag to update PID
 	}
 
@@ -404,9 +399,7 @@ int PID_Control0() {
 	if (I_Term > I_Term_Max) //0xFF is the max maybe?
 		I_Term = I_Term_Max;
 
-	u_max = (251*2*3/60)*Kp + I_Term_Max*Ki + (251*2*3/60)*Kd/T2; //251 is Maximum RPM, converted into rad/s
 	u = e*Kp + I_Term*Ki + D_Term*Kd;
-	//u = (u/u_max)*0xFF; //Clamp u between 0 and 0xFF (0 and 255) for PWM
 	des_vel_prev = des_vel; //Set the previous desired value to the current
 
 	//if (u > 0x70) u = 0x70;//Limit Output if too large
@@ -416,7 +409,7 @@ int PID_Control0() {
 
 int PID_Control1() {
 
-	des_vel2 = 50;
+	des_vel2 = 100;
 	mes_vel2 = (2 * 3 * 2e6) * (30/3) / (700 * T3); // Motor Speed in RPM at the wheel
 	//count3 = 0; //Reset count3
 	if(T3 == 0){
@@ -439,39 +432,26 @@ int PID_Control1() {
 		}
 	}
 
-	/*
-	if(des_vel2 > mes_vel2){
-		e2 = des_vel2 - mes_vel2; //Error, Ensure Negative Feedback
-	}
-	if(des_vel2 < mes_vel2){
-		e2 = des_vel2 - mes_vel2 + 2^32; //Error, Ensure Negative Feedback
-	}
-	if(des_vel2 == mes_vel2){
-		e2 = 0;
-	}*/
-
 	e2 = des_vel2 - mes_vel2; //Error, Ensure Negative Feedback
-	I_Term2 = I_Term2 + e2*dt; //Previous error + error*time step
-	D_Term2 = (e2 - e_Prev2) / dt; //Slope
+	I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
+	D_Term2 = (e2 - e_Prev2)/(dt*1e2); //Slope
 	e_Prev2 = e2; //Previous Error
 	if (I_Term2 < I_Term_Min) //Checking for Integral Windup
 		I_Term2 = I_Term_Min;
 	if (I_Term2 > I_Term_Max) //255 is the max maybe?
 		I_Term2 = I_Term_Max;
 
-	u2_max = abs((276)*Kp + I_Term_Max*Ki + (276)*Kd/dt); //251 is Maximum RPM, converted into rad/s
-	u2 = abs((e2*Kp + I_Term2*Ki + D_Term2*Kd)); //Clamp u2 between 0 and 0xFF (0 and 255) for PWM
-	u2 = (u2/u2_max)*255; //Clamp u2 between 0 and 0xFF (0 and 255) for PWM
-	des_vel_prev2 = des_vel2; //Set the previous desired value to the current
+	u2 = abs((e2*Kp + I_Term2*Ki/1e2 + D_Term2*Kd*1e2));
+	//des_vel_prev2 = des_vel2; //Set the previous desired value to the current
 
 
 
 	//pulses2 = 0;//Reset the number of pulses
 
 	if(test_count <150){
-		test_u2[test_count] = u2;
+		//test_u2[test_count] = u2;
 		test_e2[test_count] = e2;
-		test_mesvel2[test_count] = mes_vel2;
+		//test_mesvel2[test_count] = mes_vel2;
 		test_count++;
 	}
 	flag1 = 0;//Reset flag
