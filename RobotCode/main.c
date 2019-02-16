@@ -45,12 +45,11 @@
 
 // Global Variables
 int des_vel, mes_vel = 0, des_vel_prev, des_vel2, mes_vel2 = 0, des_vel_prev2;
-int e = 0, e_Prev = 0, e2 = 0, e_Prev2 = 0;
+short int e = 0, e_Prev = 0, e2 = 0, e_Prev2 = 0;
 int P_Term = 0, I_Term = 0, I_Term2 = 0, D_Term = 0, P_Term2 = 0, D_Term2 = 0;
 int I_Term_Min = -255*1e2, I_Term_Max = 255*1e2;
 int speed_motor0 = 0, speed_motor1 = 0;
-//unsigned int Kp = 100, Kd = 10, Ki = 50; //These Values Come From Mike's MATLAB File
-int Kp = 2, Kd = 1, Ki = -2;
+int Kp = 8, Kd = 2, Ki = -2;
 unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
 unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
@@ -59,23 +58,27 @@ unsigned int r = 0, r2 = 0;
 unsigned int direction = 0, direction2 = 0; //Values for direction
 unsigned int ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
 int quad_count1 = 0, quad_count2 = 0;
-int pulses1 = 0, pulses2 = 0;
 float dt = 0.001632; //dt is an ideal value calculated from 255/15625
 short test_e2[150];
 int test_count = 0;
 int flag1 = 1, flag2 = 1; //Interrupt flags
+char cout;
+char hexaDeciNum[4];
+int time = 0;
 
 //PWM Service Routine
 void TPM1_IRQHandler() {
 
-	// PID
-	speed_motor0 = PID_Control0();
+	if(flag1 == 1){
+		// PID
+		speed_motor0 = PID_Control0();
 
-	// Set Duty Cycle PWM
-	TPM1_C0V = TPM_CnV_VAL(0x00) + speed_motor0;  //The duty cycle is equal to 0xFF/(speed_motor0)*100%
+		// Set Duty Cycle PWM
+		TPM1_C0V = TPM_CnV_VAL(0x00) + speed_motor0;  //The duty cycle is equal to 0xFF/(speed_motor0)*100%
 
-	//Set Motor Direction
-	GPIOB_PDOR |= (1 << 8); //Set as Logic 1 Output
+		//Set Motor Direction
+		GPIOB_PDOR |= (1 << 8); //Set as Logic 1 Output
+	}
 
 	//Reset Interrupt Flag
 	TPM1_SC |= TPM_SC_TOF_MASK; //Resetting The Timer Overflow Flag
@@ -85,16 +88,17 @@ void TPM1_IRQHandler() {
 //PWM Service Routine
 void TPM2_IRQHandler() {
 
-	if(flag1 == 1){
+	//if(flag2 == 1){
 		// PID
 		speed_motor1 = PID_Control1();
 
 		// Set PWM
-		TPM2_C0V = TPM_CnV_VAL(0x00) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
+		TPM2_C0V = TPM_CnV_VAL(0x50) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
 
 		//Set Motor Direction
 		GPIOB_PDOR |= (1 << 9); //Set as Logic 1 Output
-	}
+	//}
+
 	// Reset Interrupt Flag
 	TPM2_SC |= TPM_SC_TOF_MASK; //Resetting The Timer Overflow Flag
 
@@ -107,7 +111,6 @@ void TPM0_IRQHandler() {
 
 	if (TPM0_STATUS & TPM_STATUS_CH0F_MASK) {
 
-		pulses2++; //Increment the number of pulses for encoder 2
 		T3_Current = TPM0_C0V; //Current count value
 
 		if(T3_Current > T3_Prev){
@@ -130,7 +133,7 @@ void TPM0_IRQHandler() {
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
 		TPM0_STATUS |= TPM_STATUS_CH0F_MASK; //Reset Channel 0 Event
 		//mes_vel2 = (2 * 3 * 2e6) * (30/3) / (700 * T3); // Motor Speed in RPM at the wheel
-		flag1 = 1; //Set flag to update PID
+		flag2 = 1; //Set flag to update PID
 	}
 
 	if (TPM0_STATUS & TPM_STATUS_CH1F_MASK) {
@@ -198,7 +201,6 @@ void TPM0_IRQHandler() {
 
 	if (TPM0_STATUS & TPM_STATUS_CH3F_MASK) {
 
-		pulses1++; //Increment the number of pulses for encoder 1
 		T2_Current = TPM0_C3V; //Current Time
 
 		if(T2_Current > T2_Prev){
@@ -220,6 +222,7 @@ void TPM0_IRQHandler() {
 		T2_Prev = T2_Current; //Temporary Variable
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
 		TPM0_STATUS |= TPM_STATUS_CH3F_MASK; //Reset Channel 1 Event
+		flag1 = 1;//Set Flag to update PID
 	}
 
 	if(quad_count2 < 0){
@@ -279,7 +282,7 @@ void init_TPM() {
 
 	//Init TPM0
 	SIM_SCGC6 |= SIM_SCGC6_TPM0_MASK; // Enable TPM0
-	TPM0_SC |= TPM_SC_PS(2); //Change this value around to try and get mes_vel reasonable
+	TPM0_SC |= TPM_SC_PS_MASK & 0x2; //Change this value around to try and get mes_vel reasonable
 	TPM0_SC |= TPM_SC_TOF_MASK;
 	TPM0_SC |= TPM_SC_DMA_MASK;
 
@@ -367,21 +370,21 @@ void init_led() {
 int PID_Control0() {
 
 
-	des_vel = 0x30;//Set the desired value
-	mes_vel = (2 * 3 * 2000000) / (700 * T2); //Calculate the measured speed
+	des_vel = 150;//Set the desired value
+	mes_vel = (2 * 3 * 2e6 * (30/3)) / (700 * T2); //Calculate the measured speed
 	if(T2 == 0){
 		mes_vel = 0; //Accounting for the case of having desired velocity equal to zero
 	}
-	ramp_rate = (des_vel - des_vel_prev) / (T2*5); //Ramp input over 5 function calls
+	ramp_rate = 7; //Ramp input over 5 function calls
 
-	if(mes_vel < des_vel){
+	if(r < des_vel){
 		r = r + ramp_rate; //Ramp up
 
 		if(r > des_vel){
 			r = des_vel; //Limit if it over shoots the desired
 		}
 	}
-	else if(mes_vel > des_vel){
+	else if(r > des_vel){
 		r = r - ramp_rate; //Ramp down
 
 		if(r < des_vel){
@@ -391,40 +394,42 @@ int PID_Control0() {
 
 
 	e = r - mes_vel; //Error
-	I_Term = I_Term + e * T2; //Previous error + error*time step, doesnt work with period for some reason
-	D_Term = (e - e_Prev) / T2; //Slope
+	I_Term = I_Term + e*dt*1e2; //Previous error + error*time step, doesnt work with period for some reason
+	D_Term = (e - e_Prev) / (dt*1e2); //Slope
 	e_Prev = e; //Previous Error
 	if (I_Term < I_Term_Min) //Checking for Integral Windup
 		I_Term = I_Term_Min;
 	if (I_Term > I_Term_Max) //0xFF is the max maybe?
 		I_Term = I_Term_Max;
 
-	u = e*Kp + I_Term*Ki + D_Term*Kd;
+	u = abs(e*Kp + I_Term*Ki/1e2 + D_Term*Kd*1e2);
 	des_vel_prev = des_vel; //Set the previous desired value to the current
-
-	//if (u > 0x70) u = 0x70;//Limit Output if too large
+	flag1 = 0; //Reset Flag
 
 	return u;
 }
 
 int PID_Control1() {
 
-	des_vel2 = 100;
-	mes_vel2 = (2 * 3 * 2e6) * (30/3) / (700 * T3); // Motor Speed in RPM at the wheel
+	des_vel2 = 150;
+	if(time >= 300){
+		des_vel2 = 200;
+	}
+	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3); // Motor Speed in RPM at the wheel
 	//count3 = 0; //Reset count3
 	if(T3 == 0){
 		mes_vel2 = 0; //Accounting for the case of having desired velocity equal to zero
 	}
-	ramp_rate2 = (des_vel2 - des_vel_prev2) / (700*5); //Ramp input over 5 function calls
+	ramp_rate2 = 7; //Ramp input over 5 function calls
 
-	if(mes_vel2 < des_vel2){
+	if(r2 < des_vel2){
 		r2 = r2 + ramp_rate2; //Ramp up
 
 		if(r2 > des_vel2){
 			r2 = des_vel2; //Limit if it over shoots the desired
 		}
 	}
-	else if(mes_vel2 > des_vel2){
+	else if(r2 > des_vel2){
 		r2 = r2 - ramp_rate2; //Ramp down
 
 		if(r2 < des_vel2){
@@ -432,29 +437,26 @@ int PID_Control1() {
 		}
 	}
 
-	e2 = des_vel2 - mes_vel2; //Error, Ensure Negative Feedback
+	e2 = r2 - mes_vel2; //Error, Ensure Negative Feedback
 	I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
-	D_Term2 = (e2 - e_Prev2)/(dt*1e2); //Slope
+	D_Term2 = (e2 - e_Prev2) / (dt*1e1); //Slope
 	e_Prev2 = e2; //Previous Error
 	if (I_Term2 < I_Term_Min) //Checking for Integral Windup
 		I_Term2 = I_Term_Min;
 	if (I_Term2 > I_Term_Max) //255 is the max maybe?
 		I_Term2 = I_Term_Max;
 
-	u2 = abs((e2*Kp + I_Term2*Ki/1e2 + D_Term2*Kd*1e2));
-	//des_vel_prev2 = des_vel2; //Set the previous desired value to the current
+	u2 = abs((e2*Kp + I_Term2*Ki/1e2 + D_Term2*Kd*1e1));
+	des_vel_prev2 = des_vel2; //Set the previous desired value to the current
 
 
-
-	//pulses2 = 0;//Reset the number of pulses
-
-	if(test_count <150){
+	/*if(test_count <150){
 		//test_u2[test_count] = u2;
 		test_e2[test_count] = e2;
 		//test_mesvel2[test_count] = mes_vel2;
 		test_count++;
-	}
-	flag1 = 0;//Reset flag
+	}*/
+	flag2 = 0;//Reset flag
 	return u2;
 }
 
@@ -527,7 +529,43 @@ void UART0_Putchar(char ch){
 
 }
 
+// function to convert decimal to hexadecimal
+void decToHexa(int n)
+{
 
+    // counter for hexadecimal number array
+    int i = 0;
+    int j = 0;
+    while(n!=0)
+    {
+        // temporary variable to store remainder
+        int temp  = 0;
+
+        // storing remainder in temp variable.
+        temp = n % 16;
+
+        // check if temp < 10
+        if(temp < 10)
+        {
+            hexaDeciNum[i] = temp + 48;
+            i++;
+        }
+        else
+        {
+            hexaDeciNum[i] = temp + 55;
+            i++;
+        }
+
+        n = n/16;
+    }
+
+    // printing hexadecimal number array in reverse order
+    for(j=i-1; j>=0; j--){
+        cout << hexaDeciNum[j];
+    }
+
+
+}
 
 int main(void) {
 
@@ -537,7 +575,7 @@ int main(void) {
 	init_direction();
 	//init_led();
 
-	//UART_Interface_Init(9600);
+	UART_Interface_Init(9600);
 
 	T1_Prev = TPM0_CNT; //Initial TPM0 Value
 	T2_Prev = TPM0_CNT; //Initial TPM0 Value
@@ -546,9 +584,12 @@ int main(void) {
 
 
 	for (;;) {
-		//UART0_Putchar(e);
-		//UART0_Putchar(',');
-		//UART0_Putchar(e2);
+		//decToHexa(abs(mes_vel2));
+
+		//UART0_Putchar(hexaDeciNum[1]);
+		//UART0_Putchar(hexaDeciNum[0]);
+		//time = time + 1;
+
 	}
 
 	return 0;
