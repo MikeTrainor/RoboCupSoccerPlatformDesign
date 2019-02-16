@@ -59,7 +59,6 @@ unsigned int direction = 0, direction2 = 0; //Values for direction
 unsigned int ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
 int quad_count1 = 0, quad_count2 = 0;
 float dt = 0.001632; //dt is an ideal value calculated from 255/15625
-short test_e2[150];
 int test_count = 0;
 int flag1 = 1, flag2 = 1; //Interrupt flags
 char cout;
@@ -88,16 +87,16 @@ void TPM1_IRQHandler() {
 //PWM Service Routine
 void TPM2_IRQHandler() {
 
-	//if(flag2 == 1){
+	if(flag2 == 1){
 		// PID
 		speed_motor1 = PID_Control1();
 
 		// Set PWM
-		TPM2_C0V = TPM_CnV_VAL(0x50) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
+		TPM2_C0V = TPM_CnV_VAL(0x00) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
 
 		//Set Motor Direction
 		GPIOB_PDOR |= (1 << 9); //Set as Logic 1 Output
-	//}
+	}
 
 	// Reset Interrupt Flag
 	TPM2_SC |= TPM_SC_TOF_MASK; //Resetting The Timer Overflow Flag
@@ -132,7 +131,6 @@ void TPM0_IRQHandler() {
 		T3_Prev = T3_Current; //Update Previous to Current
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
 		TPM0_STATUS |= TPM_STATUS_CH0F_MASK; //Reset Channel 0 Event
-		//mes_vel2 = (2 * 3 * 2e6) * (30/3) / (700 * T3); // Motor Speed in RPM at the wheel
 		flag2 = 1; //Set flag to update PID
 	}
 
@@ -413,7 +411,7 @@ int PID_Control1() {
 
 	des_vel2 = 150;
 	if(time >= 300){
-		des_vel2 = 200;
+		//des_vel2 = 200;
 	}
 	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3); // Motor Speed in RPM at the wheel
 	//count3 = 0; //Reset count3
@@ -449,13 +447,6 @@ int PID_Control1() {
 	u2 = abs((e2*Kp + I_Term2*Ki/1e2 + D_Term2*Kd*1e1));
 	des_vel_prev2 = des_vel2; //Set the previous desired value to the current
 
-
-	/*if(test_count <150){
-		//test_u2[test_count] = u2;
-		test_e2[test_count] = e2;
-		//test_mesvel2[test_count] = mes_vel2;
-		test_count++;
-	}*/
 	flag2 = 0;//Reset flag
 	return u2;
 }
@@ -584,11 +575,11 @@ int main(void) {
 
 
 	for (;;) {
-		//decToHexa(abs(mes_vel2));
 
-		//UART0_Putchar(hexaDeciNum[1]);
-		//UART0_Putchar(hexaDeciNum[0]);
-		//time = time + 1;
+		decToHexa(abs(mes_vel2));
+		UART0_Putchar(hexaDeciNum[1]);
+		UART0_Putchar(hexaDeciNum[0]);
+		time = time + 1;
 
 	}
 
