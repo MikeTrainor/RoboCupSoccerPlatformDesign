@@ -334,6 +334,8 @@ def main():
     global ball
     global IDdRobots
 
+    flag =  0
+
     cap = cv2.VideoCapture(0) # 0 if your pc doesn't have a webcam, probably 1 if it does
     #cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     #cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -397,6 +399,8 @@ def main():
 
             if isinstance(ball, type(None)) == 0:
                 print('Ball found at ',ball.pos)
+                # Draw a blue circle on the ball
+                cv2.circle(img,(ball.pos[0],ball.pos[1]),10,(200,0,0),5)  
 
             if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
                 for robot in roboList:
@@ -420,9 +424,11 @@ def main():
                     for mark in robot.circles:
                         # Draw a black circle on every ID mark
                         cv2.circle(img,(mark[0],mark[1]),10,(0,0,0),5)  
+            flag = 0 # go ahead and print "no circles detected" again
 
-        else:
+        elif(flag == 0):
             print("no circles detected")
+            flag = 1 # don't print this again
 
         # Display drawn on frame and original frame
         cv2.imshow('circles on stream',img)
