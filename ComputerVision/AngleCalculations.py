@@ -22,12 +22,12 @@ class robotClass:
         self.circles.append(circle)
 
 class ballClass:
-    def __init__(self, pos = []):
-        self.pos = pos
+    def __init__(self, x = 0, y = 0):
+        self.pos = [x, y]
 
 roboList = []       # holds all robots currently seen- resets every loop
 roboIDmarks = []    # holds all potential robot ID marks seen ('G' or 'P')
-ball = 0            # holds ball position in ballClass type object
+ball = None         # holds ball position in ballClass type object
 IDdRobots = []      # potentially used for previous state- probably updated every loop
 
 # colorID()
@@ -40,18 +40,22 @@ IDdRobots = []      # potentially used for previous state- probably updated ever
 # **note: Implement some form of color averaging across the circle
 #         This will improve the reliability of the system
 #         (less false positive IDs on a robot)
-def colorID(blue, green, red):
+# v2:
+#       Uses HSV instead of RGB- allows the hue to be better selected, assigning colors
+#       much more accurately
+def colorID(hue, sat, val):
     color = 'X' # Default case, 'X' will print an error for an unrecognized element
-    if (blue > 125 and green < 150 and red < 150):
-        color = 'B' # Blue team circle
-    elif (blue < 150 and green > 200 and red > 200):
-        color = 'Y' # Yellow team circle
-    elif (blue > 75 and green < 150 and red > 150):
-        color = 'P' # Purple ID circle
-    elif (blue < 200 and green > 150 and red < 150):
-        color = 'G' # Green ID circle
-    elif (blue < 50 and green < 200 and red > 220):
-        color = 'O' # Ball!
+    if(val > 40):
+        if (hue < 137 and hue >= 90):
+            color = 'B' # Blue team circle
+        elif (hue < 35 and hue >= 23):
+            color = 'Y' # Yellow team circle
+        elif ((hue >= 148 or hue < 7) and sat < 165): # Must address loop in hue
+            color = 'P' # Purple ID circle
+        elif (hue < 75 and hue >= 43):
+            color = 'G' # Green ID circle
+        elif ((hue < 23 and hue >= 8) and sat > 150):
+            color = 'O' # Ball!
 
     return color 
 
@@ -72,10 +76,10 @@ def IDcircle(img, circle):
     x=int(circle[0])
     y=int(circle[1])
 
-    blue = img[y,x,0]
-    green = img[y,x,1]
-    red = img[y,x,2]
-    color = colorID(blue, green, red)
+    hue = img[y,x,0]
+    sat = img[y,x,1]
+    val = img[y,x,2]
+    color = colorID(hue, sat, val)
     #print('Circle is ', color)
 
     # if its blue or (if its yellow) --> Robot center/new robot
@@ -89,7 +93,7 @@ def IDcircle(img, circle):
             
     # if orange --> Ball location
     elif (color == 'O'):
-        ball = ballClass([x,y])
+        ball = ballClass(x,y)
 
 # assignIDmarks()
 # E.H., Dec, 2018
@@ -331,6 +335,8 @@ def main():
     global IDdRobots
 
     cap = cv2.VideoCapture(0) # 0 if your pc doesn't have a webcam, probably 1 if it does
+    #cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    #cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     while(True):
         ret,frame = cap.read() # reading the video capture into a dummy var and frame
@@ -339,7 +345,7 @@ def main():
         roboList = []
         roboIDmarks= []
         circles = []
-        ball = []
+        ball = None
 
         # Histogram equalization for colors (haven't tested with this)
         #img_yuv = cv2.cvtColor(ii, cv2.COLOR_BGR2YUV)
@@ -353,16 +359,17 @@ def main():
         # HSV color masking
         hsv= cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
 
-        lower_rangeG = np.array([0,100,100])
-        upper_rangeG = np.array([255,255,255])
+        lower_rangeG = np.array([0,0,30])
+        upper_rangeG = np.array([180,255,255])
 
         mask = cv2.inRange(hsv, lower_rangeG, upper_rangeG) # mask for original frame with only good color
         result = cv2.bitwise_and(frame,frame,mask=mask)
         cv2.imshow("masked image",result)
+        #cv2.imshow("masked dafe",frame)
   
         hsv_out_gray= cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
 
-        # consider implementing gaussian blur here
+        blurred_img = cv2.bilateralFilter(hsv_out_gray,9,75,75)
 
         # Some notes on the HoughCircles function:
         #  Utilizes edge detection to draw tangent lines, recognizing a circle where perpendicular lines to tangents
@@ -373,7 +380,7 @@ def main():
         #  minDist: Specifies minimum distance between circles (the 4th input to the function)
         #  
         # from documentation: cv2.HoughCircles(image, method, dp, minDist[, circles[, param1[, param2[, minRadius[, maxRadius]]]]]) → circles
-        circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist = 20,param1=20,param2=13,minRadius=20,maxRadius=50)
+        circles = cv2.HoughCircles(blurred_img,cv2.HOUGH_GRADIENT,1,minDist = 20,param1=50,param2=25,minRadius=20,maxRadius=50)
 
         cv2.waitKey(1) # cv2.waitKey() is required to display images- waits 1 millisecond here
 
@@ -382,28 +389,22 @@ def main():
 
         if isinstance(circles, type(None)) == 0:
             for circle in circles[0,:]:
-                IDcircle(img, circle) # ID all the circles recognized by color
+                IDcircle(hsv, circle) # ID all the circles recognized by color
                 # draw the outer circle
                 cv2.circle(img,(circle[0],circle[1]),circle[2],(0,255,0),2)
                 # draw the center of the circle
                 cv2.circle(img,(circle[0],circle[1]),2,(0,0,255),3)
 
-            
+            if isinstance(ball, type(None)) == 0:
+                print('Ball found at ',ball.pos)
+
             if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
                 for robot in roboList:
                     assignIDmarks(robot) # Assign the ID marks observed to their appropriate robot
                     angle(robot)         # Determine angle of robots seen
                     RoboID(robot)        # Give robots seen an ID
 
-            
-            #if isinstance(ball, type(None)) == 0:
-            #    print('Ball found at ',ball)
-
-            # Draw the robot circles seen robot by robot
-            #if isinstance(roboList, type(None)) == 0:
-                for robot in roboList:
-                    #reassignIDs() <- move this somewhere else- this isn't a good place for it
-
+                    # Draw the robot circles seen robot by robot
                     # Draw a black circle on the centre of the robot
                     cv2.circle(img,(robot.pos[0],robot.pos[1]),10,(0,0,0),5)
                     if isinstance(robot.angle, type(None)) == 0:
