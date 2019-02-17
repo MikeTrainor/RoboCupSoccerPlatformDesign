@@ -44,12 +44,12 @@
  */
 
 // Global Variables
-int des_vel, mes_vel = 0, des_vel_prev, des_vel2, mes_vel2 = 0, des_vel_prev2;
-short int e = 0, e_Prev = 0, e2 = 0, e_Prev2 = 0;
-int P_Term = 0, I_Term = 0, I_Term2 = 0, D_Term = 0, P_Term2 = 0, D_Term2 = 0;
-int I_Term_Min = -255*1e2, I_Term_Max = 255*1e2;
+float des_vel, mes_vel = 0, des_vel_prev, des_vel2, mes_vel2 = 0, des_vel_prev2;
+float e = 0, e_Prev = 0, e2 = 0, e_Prev2 = 0;
+float P_Term = 0, I_Term = 0, I_Term2 = 0, D_Term = 0, P_Term2 = 0, D_Term2 = 0;
+int I_Term_Min = -255e3, I_Term_Max = 255e3;
 int speed_motor0 = 0, speed_motor1 = 0;
-int Kp = 8, Kd = 2, Ki = -2;
+float Kp = 1, Kd = 1, Ki = -1;
 unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
 unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
@@ -64,6 +64,9 @@ int flag1 = 1, flag2 = 1; //Interrupt flags
 char cout;
 char hexaDeciNum[4];
 int time = 0;
+int Beta = 2, FP_Shift = 1;
+signed long SmoothDataFP, SmoothDataINT;
+
 
 //PWM Service Routine
 void TPM1_IRQHandler() {
@@ -128,6 +131,7 @@ void TPM0_IRQHandler() {
 			quad_count1++;
 		}
 
+		T3 = LPF(T3);//Filter the Data
 		T3_Prev = T3_Current; //Update Previous to Current
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
 		TPM0_STATUS |= TPM_STATUS_CH0F_MASK; //Reset Channel 0 Event
@@ -409,9 +413,9 @@ int PID_Control0() {
 
 int PID_Control1() {
 
-	des_vel2 = 150;
+	des_vel2 = 10;
 	if(time >= 300){
-		//des_vel2 = 200;
+		//des_vel2 = 10;
 	}
 	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3); // Motor Speed in RPM at the wheel
 	//count3 = 0; //Reset count3
@@ -435,19 +439,28 @@ int PID_Control1() {
 		}
 	}
 
-	e2 = r2 - mes_vel2; //Error, Ensure Negative Feedback
-	I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
-	D_Term2 = (e2 - e_Prev2) / (dt*1e1); //Slope
+	e2 = des_vel2 - mes_vel2; //Error, Ensure Negative Feedback
+
+	//I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
+	D_Term2 = (e2 - e_Prev2) / (dt*1e2); //Slope
 	e_Prev2 = e2; //Previous Error
-	if (I_Term2 < I_Term_Min) //Checking for Integral Windup
+
+	if (I_Term2 < I_Term_Min){ //Checking for Integral Windup
 		I_Term2 = I_Term_Min;
-	if (I_Term2 > I_Term_Max) //255 is the max maybe?
+	}
+	else if (I_Term2 > I_Term_Max){ //255 is the max maybe?
 		I_Term2 = I_Term_Max;
+	}
+	else{
+		I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
+	}
+
+	//I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
 
 	u2 = abs((e2*Kp + I_Term2*Ki/1e2 + D_Term2*Kd*1e1));
 	des_vel_prev2 = des_vel2; //Set the previous desired value to the current
-
 	flag2 = 0;//Reset flag
+
 	return u2;
 }
 
@@ -558,6 +571,18 @@ void decToHexa(int n)
 
 }
 
+int LPF(int val){
+
+	val <<= FP_Shift; // Shift to fixed point
+	SmoothDataFP = (SmoothDataFP<< Beta)-SmoothDataFP;
+	SmoothDataFP += val;
+	SmoothDataFP >>= Beta;
+	// Don't do the following shift if you want to do further
+	// calculations in fixed-point using SmoothData
+	SmoothDataINT = SmoothDataFP>> FP_Shift;
+	return SmoothDataINT;
+}
+
 int main(void) {
 
 	init_MCG();
@@ -576,16 +601,12 @@ int main(void) {
 
 	for (;;) {
 
-		decToHexa(abs(mes_vel2));
-		UART0_Putchar(hexaDeciNum[1]);
-		UART0_Putchar(hexaDeciNum[0]);
-		time = time + 1;
+		//decToHexa(abs(mes_vel2));
+		//UART0_Putchar(hexaDeciNum[1]);
+		//UART0_Putchar(hexaDeciNum[0]);
+		//time = time + 1;
 
 	}
 
 	return 0;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// EOF
-////////////////////////////////////////////////////////////////////////////////
