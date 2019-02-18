@@ -57,9 +57,9 @@ unsigned int T1, T2, T3, T4;
 float u = 0, u2 = 0;
 float r = 0, r2 = 0;
 unsigned int direction = 0, direction2 = 0; //Values for direction
-float ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
+float ramp_rate = 5, ramp_rate2 = 5; //Ramp rate for motors
 int quad_count1 = 0, quad_count2 = 0;
-float dt = 0; //dt is an ideal value calculated from 255/15625
+float dt1 = 0, dt2 = 0; //dt is an ideal value calculated from 255/15625
 int test_count = 0;
 int flag1 = 1, flag2 = 1; //Interrupt flags
 char cout;
@@ -67,13 +67,14 @@ char hexaDeciNum[4];
 int time = 0;
 int Beta = 2, FP_Shift = 1;
 signed long SmoothDataFP, SmoothDataINT;
-int PID_count = 0;
+int PID_count1 = 0, PID_count2 = 0;
 //Previous Best is 200Hz
 //Current Best is 500Hz, which can get up to 250RPM
 
 //PWM Service Routine
 void TPM1_IRQHandler() {
 
+	PID_count1 += 1;
 	if(flag1 == 1){
 		// PID
 		speed_motor0 = PID_Control0();
@@ -93,8 +94,7 @@ void TPM1_IRQHandler() {
 //PWM Service Routine
 void TPM2_IRQHandler() {
 
-	PID_count += 1; //Increment PID_count
-	//TPM2_C0V = TPM_CnV_VAL(0x0F);
+	PID_count2 += 1; //Increment PID_count2
 	if(flag2 == 1){
 		// PID
 		speed_motor1 = PID_Control1();
@@ -227,6 +227,7 @@ void TPM0_IRQHandler() {
 			quad_count2--;
 		}
 
+		T2 = LPF(T2);//Filter the Data
 		T2_Prev = T2_Current; //Temporary Variable
 		TPM0_SC |= TPM_SC_TOF_MASK; //Reset Flag
 		TPM0_STATUS |= TPM_STATUS_CH3F_MASK; //Reset Channel 1 Event
@@ -297,7 +298,7 @@ void init_TPM() {
 	TPM0_SC |= TPM_SC_DMA_MASK;
 
 	//Init TPM0_CH0
-	TPM0_C0SC |= (TPM_CnSC_ELSA_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 0 mode as rising
+	TPM0_C0SC |= (TPM_CnSC_ELSA_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 0 mode as rising & Falling edges
 	TPM0_C0SC |= TPM_CnSC_CHIE_MASK; //Channel interrupt enable
 	TPM0_C0SC |= TPM_CnSC_DMA_MASK; //Allow Direct Memory Access
 
@@ -379,9 +380,10 @@ void init_led() {
 //and the Tx for the I_Term & D_Term must be different from the first, possibly needs no input for it to work
 int PID_Control0() {
 
+	dt1 = PID_count1*0.51;//Count*one Periodic timer, 255/500 = 0.51. 500 is the PWM Frequency and 255 is the register size
+	des_vel = 50;//Set the desired value
+	mes_vel = (2 * 3 * 2e6 * (30/3)) / (700 * T2 * 2); //Calculate the measured speed
 
-	des_vel = 150;//Set the desired value
-	mes_vel = (2 * 3 * 2e6 * (30/3)) / (700 * T2); //Calculate the measured speed
 	if(T2 == 0){
 		mes_vel = 0; //Accounting for the case of having desired velocity equal to zero
 	}
@@ -403,35 +405,30 @@ int PID_Control0() {
 	}
 
 
-	e = r - mes_vel; //Error
-	I_Term = I_Term + e*dt*1e2; //Previous error + error*time step, doesnt work with period for some reason
-	D_Term = (e - e_Prev) / (dt*1e2); //Slope
-	e_Prev = e; //Previous Error
-	if (I_Term < I_Term_Min) //Checking for Integral Windup
-		I_Term = I_Term_Min;
-	if (I_Term > I_Term_Max) //0xFF is the max maybe?
-		I_Term = I_Term_Max;
+	e = des_vel - mes_vel; //Error
+	D_Term = (e - e_Prev) / (dt1); //Slope
 
-	u = abs(e*Kp + I_Term*Ki/1e2 + D_Term*Kd*1e2);
-	des_vel_prev = des_vel; //Set the previous desired value to the current
+
+	u = fabs(e*Kp + I_Term*Ki + D_Term*Kd);
+
+	if(fabs(u) >= 0x1F40){
+		u = 0x1F40;//Max Duty Cycle
+	}
+	else{
+		I_Term = I_Term + e*dt1; //Previous error + error*time step, scaling factor 10e2
+	}
+
 	flag1 = 0; //Reset Flag
+	PID_count1 = 0; //Reset PID_count
+	e_Prev = e; //Previous Error
 
 	return u;
 }
 
 int PID_Control1() {
 
-	dt = PID_count*0.51;//Count*one Periodic timer
-	des_vel2 = 150;
-	if(time >= 500){
-		//des_vel2 = 50;
-	}
-	if(time >= 900){
-		//des_vel2 = 25;
-	}
-	if(time >= 1200){
-		//des_vel2 = 20;
-	}
+	dt2 = PID_count2*0.51;//Count*one Periodic timer, 255/500 = 0.51. 500 is the PWM Frequency and 255 is the register size
+	des_vel2 = 50;
 	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3 * 2); // Motor Speed in RPM at the wheel
 
 	if(T3 == 0){
@@ -455,7 +452,7 @@ int PID_Control1() {
 	}
 
 	e2 = des_vel2 - mes_vel2; //Error, Ensure Negative Feedback
-	D_Term2 = (e2 - e_Prev2)/dt; //Slope
+	D_Term2 = (e2 - e_Prev2)/dt2; //Slope
 
 	u2 = fabs((e2*Kp + I_Term2*Ki + D_Term2*Kd));
 
@@ -463,12 +460,12 @@ int PID_Control1() {
 		u2 = 0x1F40;//Max Duty Cycle
 	}
 	else{
-		I_Term2 = I_Term2 + e2*dt; //Previous error + error*time step, scaling factor 10e2
+		I_Term2 = I_Term2 + e2*dt2; //Previous error + error*time step, scaling factor 10e2
 	}
 
 	e_Prev2 = e2; //Previous Error
 	flag2 = 0;//Reset flag
-	PID_count = 0;//Reset PID_count
+	PID_count2 = 0;//Reset PID_count2
 
 	return u2;
 }
