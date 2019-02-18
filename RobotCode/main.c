@@ -29,6 +29,7 @@
  */
 
 #include "MKL25Z4.h"
+#include "math.h"
 
 // Pin Assignments Page 161/807
 // PWM Module Page 547/807
@@ -46,19 +47,19 @@
 // Global Variables
 float des_vel, mes_vel = 0, des_vel_prev, des_vel2, mes_vel2 = 0, des_vel_prev2;
 float e = 0, e_Prev = 0, e2 = 0, e_Prev2 = 0;
-float P_Term = 0, I_Term = 0, I_Term2 = 0, D_Term = 0, P_Term2 = 0, D_Term2 = 0;
-int I_Term_Min = -255e3, I_Term_Max = 255e3;
-int speed_motor0 = 0, speed_motor1 = 0;
-float Kp = 1, Kd = 1, Ki = -1;
+float P_Term = 0, I_Term = 0, I_Term2 = 0, I_Term_prev, I_Term_prev2, D_Term = 0, P_Term2 = 0, D_Term2 = 0;
+int I_Term_Min = -0xFFFF, I_Term_Max = 0xFFFF;
+float speed_motor0 = 0, speed_motor1 = 0;
+float Kp = 8, Kd = 10, Ki = 5;
 unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
 unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
-int u = 0, u2 = 0;
-unsigned int r = 0, r2 = 0;
+float u = 0, u2 = 0;
+float r = 0, r2 = 0;
 unsigned int direction = 0, direction2 = 0; //Values for direction
-unsigned int ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
+float ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
 int quad_count1 = 0, quad_count2 = 0;
-float dt = 0.001632; //dt is an ideal value calculated from 255/15625
+float dt = 0; //dt is an ideal value calculated from 255/15625
 int test_count = 0;
 int flag1 = 1, flag2 = 1; //Interrupt flags
 char cout;
@@ -66,6 +67,7 @@ char hexaDeciNum[4];
 int time = 0;
 int Beta = 2, FP_Shift = 1;
 signed long SmoothDataFP, SmoothDataINT;
+int PID_count = 0;
 
 
 //PWM Service Routine
@@ -90,6 +92,8 @@ void TPM1_IRQHandler() {
 //PWM Service Routine
 void TPM2_IRQHandler() {
 
+	PID_count += 1; //Increment PID_count
+
 	if(flag2 == 1){
 		// PID
 		speed_motor1 = PID_Control1();
@@ -100,6 +104,7 @@ void TPM2_IRQHandler() {
 		//Set Motor Direction
 		GPIOB_PDOR |= (1 << 9); //Set as Logic 1 Output
 	}
+
 
 	// Reset Interrupt Flag
 	TPM2_SC |= TPM_SC_TOF_MASK; //Resetting The Timer Overflow Flag
@@ -256,7 +261,7 @@ void init_TPM() {
 	SIM_SOPT2 |= SIM_SOPT2_TPMSRC_MASK; // TPM Module Uses MCGIRCLK Clock
 
 	TPM2_C0SC = (TPM_CnSC_MSB_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 5 mode as Center Aligned PWM mode
-	TPM2_MOD = 0xFF;
+	TPM2_MOD = 0xFFFF;
 	//TPM0_MOD = (uint32_t)((TPM0_MOD & (uint32_t)~(uint32_t)(TPM_MOD_MOD(0xFFF6))) | (uint32_t)(TPM_MOD_MOD(0x09)));  // TPM MOD =9 ,it means the TPM cycle is 10us
 	TPM2_SC = (uint32_t) ((TPM2_SC & (uint32_t) ~(uint32_t) (
 	TPM_SC_DMA_MASK |
@@ -273,7 +278,7 @@ void init_TPM() {
 	TPM1_C0SC = (TPM_CnSC_MSB_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 0 mode as Center Aligned PWM mode
 	//TPM1_MOD = (uint32_t)((TPM1_MOD & (uint32_t)~(uint32_t)(TPM_MOD_MOD(0xFFF6))) | (uint32_t)(TPM_MOD_MOD(0x09)));  // TPM MOD =9 ,it means the TPM cycle is 10us
 	//TPM1_MOD = 0x9;
-	TPM1_MOD = 0xFF;
+	TPM1_MOD = 0xFFFF;
 	TPM1_SC = (uint32_t) ((TPM1_SC & (uint32_t) ~(uint32_t) (
 	TPM_SC_DMA_MASK |
 	TPM_SC_CPWMS_MASK | TPM_SC_CMOD(0x02))) | (uint32_t) (
@@ -413,17 +418,18 @@ int PID_Control0() {
 
 int PID_Control1() {
 
-	des_vel2 = 10;
+	dt = PID_count*0.26208;//Count*one Periodic timer
+	des_vel2 = 150;
 	if(time >= 300){
 		//des_vel2 = 10;
 	}
 	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3); // Motor Speed in RPM at the wheel
-	//count3 = 0; //Reset count3
+
 	if(T3 == 0){
 		mes_vel2 = 0; //Accounting for the case of having desired velocity equal to zero
 	}
-	ramp_rate2 = 7; //Ramp input over 5 function calls
 
+	ramp_rate2 = 0.1; //Ramp input over 200 function calls
 	if(r2 < des_vel2){
 		r2 = r2 + ramp_rate2; //Ramp up
 
@@ -440,26 +446,20 @@ int PID_Control1() {
 	}
 
 	e2 = des_vel2 - mes_vel2; //Error, Ensure Negative Feedback
+	D_Term2 = (e2 - e_Prev2)/dt; //Slope
 
-	//I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
-	D_Term2 = (e2 - e_Prev2) / (dt*1e2); //Slope
-	e_Prev2 = e2; //Previous Error
+	u2 = fabs((e2*Kp + I_Term2*Ki + D_Term2*Kd));
 
-	if (I_Term2 < I_Term_Min){ //Checking for Integral Windup
-		I_Term2 = I_Term_Min;
-	}
-	else if (I_Term2 > I_Term_Max){ //255 is the max maybe?
-		I_Term2 = I_Term_Max;
+	if(fabs(u2) >= 0xFFFF){
+		u2 = 0xFFFF;//Max Duty Cycle
 	}
 	else{
-		I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
+		I_Term2 = I_Term2 + e2*dt; //Previous error + error*time step, scaling factor 10e2
 	}
 
-	//I_Term2 = I_Term2 + e2*dt*1e2; //Previous error + error*time step, scaling factor 10e2
-
-	u2 = abs((e2*Kp + I_Term2*Ki/1e2 + D_Term2*Kd*1e1));
-	des_vel_prev2 = des_vel2; //Set the previous desired value to the current
+	e_Prev2 = e2; //Previous Error
 	flag2 = 0;//Reset flag
+	PID_count = 0;//Reset PID_count
 
 	return u2;
 }
@@ -601,10 +601,10 @@ int main(void) {
 
 	for (;;) {
 
-		//decToHexa(abs(mes_vel2));
-		//UART0_Putchar(hexaDeciNum[1]);
-		//UART0_Putchar(hexaDeciNum[0]);
-		//time = time + 1;
+		decToHexa(abs((int)mes_vel2));
+		UART0_Putchar(hexaDeciNum[1]);
+		UART0_Putchar(hexaDeciNum[0]);
+		time = time + 1;
 
 	}
 
