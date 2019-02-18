@@ -50,7 +50,7 @@ float e = 0, e_Prev = 0, e2 = 0, e_Prev2 = 0;
 float P_Term = 0, I_Term = 0, I_Term2 = 0, I_Term_prev, I_Term_prev2, D_Term = 0, P_Term2 = 0, D_Term2 = 0;
 int I_Term_Min = -0xFFFF, I_Term_Max = 0xFFFF;
 float speed_motor0 = 0, speed_motor1 = 0;
-float Kp = 8, Kd = 10, Ki = 5;
+float Kp = 5, Kd = 5, Ki = 1.05; //Current Best is Kp = 5, Kd = 5, Ki = 1.05, Prev Best is Kp = 5, Kd = 5, Ki = 1.1
 unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
 unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
@@ -68,7 +68,8 @@ int time = 0;
 int Beta = 2, FP_Shift = 1;
 signed long SmoothDataFP, SmoothDataINT;
 int PID_count = 0;
-
+//Previous Best is 200Hz
+//Current Best is 500Hz, which can get up to 250RPM
 
 //PWM Service Routine
 void TPM1_IRQHandler() {
@@ -93,7 +94,7 @@ void TPM1_IRQHandler() {
 void TPM2_IRQHandler() {
 
 	PID_count += 1; //Increment PID_count
-
+	//TPM2_C0V = TPM_CnV_VAL(0x0F);
 	if(flag2 == 1){
 		// PID
 		speed_motor1 = PID_Control1();
@@ -261,14 +262,15 @@ void init_TPM() {
 	SIM_SOPT2 |= SIM_SOPT2_TPMSRC_MASK; // TPM Module Uses MCGIRCLK Clock
 
 	TPM2_C0SC = (TPM_CnSC_MSB_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 5 mode as Center Aligned PWM mode
-	TPM2_MOD = 0xFFFF;
+	TPM2_MOD = 0x1F40; //500 Hz PWM
 	//TPM0_MOD = (uint32_t)((TPM0_MOD & (uint32_t)~(uint32_t)(TPM_MOD_MOD(0xFFF6))) | (uint32_t)(TPM_MOD_MOD(0x09)));  // TPM MOD =9 ,it means the TPM cycle is 10us
+	//TPM2_SC |= TPM_SC_PS_MASK & 0x1; //Divide clock down by 127
 	TPM2_SC = (uint32_t) ((TPM2_SC & (uint32_t) ~(uint32_t) (
 	TPM_SC_DMA_MASK |
 	TPM_SC_CPWMS_MASK | TPM_SC_CMOD(0x02))) | (uint32_t) (
 	TPM_SC_TOF_MASK |
 	TPM_SC_TOIE_MASK | TPM_SC_CMOD(0x01)));
-	TPM2_SC |= TPM_SC_PS(7); //Divide clock down by 127
+	TPM2_SC |= TPM_SC_PS_MASK & 0x7; //Divide clock down by 127
 
 	//Init TPM1
 	SIM_SCGC6 |= SIM_SCGC6_TPM1_MASK; // Enable TPM1
@@ -278,23 +280,24 @@ void init_TPM() {
 	TPM1_C0SC = (TPM_CnSC_MSB_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 0 mode as Center Aligned PWM mode
 	//TPM1_MOD = (uint32_t)((TPM1_MOD & (uint32_t)~(uint32_t)(TPM_MOD_MOD(0xFFF6))) | (uint32_t)(TPM_MOD_MOD(0x09)));  // TPM MOD =9 ,it means the TPM cycle is 10us
 	//TPM1_MOD = 0x9;
-	TPM1_MOD = 0xFFFF;
+	TPM1_MOD = 0x1F40; //500 Hz PWM
+	//TPM1_SC |= TPM_SC_PS_MASK & 0x1; //Divide clock down by 127
 	TPM1_SC = (uint32_t) ((TPM1_SC & (uint32_t) ~(uint32_t) (
 	TPM_SC_DMA_MASK |
 	TPM_SC_CPWMS_MASK | TPM_SC_CMOD(0x02))) | (uint32_t) (
 	TPM_SC_TOF_MASK |
 	TPM_SC_TOIE_MASK | TPM_SC_CMOD(0x01)));
-	TPM1_SC |= TPM_SC_PS(7); //Divide clock down by 127
+	TPM1_SC |= TPM_SC_PS_MASK & 0x7; //Divide clock down by 127
 
 
 	//Init TPM0
 	SIM_SCGC6 |= SIM_SCGC6_TPM0_MASK; // Enable TPM0
-	TPM0_SC |= TPM_SC_PS_MASK & 0x2; //Change this value around to try and get mes_vel reasonable
+	TPM0_SC |= TPM_SC_PS_MASK & 0x2; //4MHz/2 = 2MHz
 	TPM0_SC |= TPM_SC_TOF_MASK;
 	TPM0_SC |= TPM_SC_DMA_MASK;
 
 	//Init TPM0_CH0
-	TPM0_C0SC |= (TPM_CnSC_ELSA_MASK); // choose the channel 0 mode as rising
+	TPM0_C0SC |= (TPM_CnSC_ELSA_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 0 mode as rising
 	TPM0_C0SC |= TPM_CnSC_CHIE_MASK; //Channel interrupt enable
 	TPM0_C0SC |= TPM_CnSC_DMA_MASK; //Allow Direct Memory Access
 
@@ -327,7 +330,7 @@ void init_TPM() {
 void init_MCG() {
 	MCG_C1 = MCG_C1_IRCLKEN_MASK; //Allows Use as IRCLKEN Clock
 	MCG_C2 = MCG_C2_IRCS_MASK; //Fast Internal Clock is Selected
-	MCG_SC = MCG_SC_FCRDIV_MASK & 0x01; //Divide Clock by a Factor of 2 = 2 MHz
+	MCG_SC = MCG_SC_FCRDIV_MASK & 0x01; //Divide Clock by a Factor of 1 = 4 MHz
 	//MCG_SC = MCG_SC_FCRDIV_MASK; //Divide Clock by a Factor of 7 = 4 MHz / 128
 }
 
@@ -418,18 +421,24 @@ int PID_Control0() {
 
 int PID_Control1() {
 
-	dt = PID_count*0.26208;//Count*one Periodic timer
+	dt = PID_count*0.51;//Count*one Periodic timer
 	des_vel2 = 150;
-	if(time >= 300){
-		//des_vel2 = 10;
+	if(time >= 500){
+		//des_vel2 = 50;
 	}
-	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3); // Motor Speed in RPM at the wheel
+	if(time >= 900){
+		//des_vel2 = 25;
+	}
+	if(time >= 1200){
+		//des_vel2 = 20;
+	}
+	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3 * 2); // Motor Speed in RPM at the wheel
 
 	if(T3 == 0){
 		mes_vel2 = 0; //Accounting for the case of having desired velocity equal to zero
 	}
 
-	ramp_rate2 = 0.1; //Ramp input over 200 function calls
+	ramp_rate2 = 5; //Ramp input over 200 function calls
 	if(r2 < des_vel2){
 		r2 = r2 + ramp_rate2; //Ramp up
 
@@ -450,8 +459,8 @@ int PID_Control1() {
 
 	u2 = fabs((e2*Kp + I_Term2*Ki + D_Term2*Kd));
 
-	if(fabs(u2) >= 0xFFFF){
-		u2 = 0xFFFF;//Max Duty Cycle
+	if(fabs(u2) >= 0x1F40){
+		u2 = 0x1F40;//Max Duty Cycle
 	}
 	else{
 		I_Term2 = I_Term2 + e2*dt; //Previous error + error*time step, scaling factor 10e2
