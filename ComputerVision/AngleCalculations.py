@@ -48,14 +48,16 @@ def colorID(hue, sat, val):
     if(val > 40):
         if (hue < 137 and hue >= 90):
             color = 'B' # Blue team circle
-        elif (hue < 35 and hue >= 23):
+        elif (hue < 35 and hue > 20):
             color = 'Y' # Yellow team circle
-        elif ((hue >= 148 or hue < 7) and sat < 165): # Must address loop in hue
+        elif (hue >= 148 or (hue <= 8 and sat < 120)): # Must address loop in hue
             color = 'P' # Purple ID circle
-        elif (hue < 75 and hue >= 43):
+        elif (hue < 90 and hue >= 43):
             color = 'G' # Green ID circle
-        elif ((hue < 23 and hue >= 8) and sat > 150):
+        elif (hue <= 20 and hue >= 3):
             color = 'O' # Ball!
+        else:
+            print(hue,sat,val) # good for debugging unrecognized circles
 
     return color 
 
@@ -147,34 +149,50 @@ def assignIDmarks(robot):
 # E.H., Jan, 2019
 # This function reads the sorted robot.circles list and assigns an ID (robot.ID = x)
 # to the robot. If the IDs are not properly sorted, this will not work
-# v1:
-# Doesn't have all IDs implemented yet
+# v2:
+# Has all IDs implemented
 def RoboID(robot):
     #for robot in roboList:
     if len(robot.circles) == 4:
-        if robot.circles[0][2] == 'P':
-            if robot.circles[1][2] == 'P':
-                if robot.circles[2][2] == 'P':
-                    if robot.circles[3][2] == 'P':
+        if robot.circles[0][2] == 'P': # circle 1
+            if robot.circles[1][2] == 'P': # circle 2
+                if robot.circles[2][2] == 'P': # circle 3
+                    if robot.circles[3][2] == 'P': # circle 4
                         robot.ID = 'ID9'
-                    elif robot.circles[3][2] == 'G':
+                    elif robot.circles[3][2] == 'G': # circle 4
                         robot.ID = 'ID4'
-                elif robot.circles[2][2] == 'G':
-                    if robot.circles[3][2] == 'P':
-                        robot.ID = 'ID3'
-                    elif robot.circles[3][2] == 'G':
-                        robot.ID = 'ID4'
-            elif robot.circles[1][2] == 'G':
-                if robot.circles[2][2] == 'P':
-                    if robot.circles[3][2] == 'P':
-                        robot.ID = 'ID5'
-                    elif robot.circles[3][2] == 'G':
-                        robot.ID = 'ID6'
-                elif robot.circles[2][2] == 'G':
-                    if robot.circles[3][2] == 'P':
+                elif robot.circles[2][2] == 'G': # circle 3
+                    if robot.circles[3][2] == 'P': # circle 4
+                        robot.ID = 'ID0'
+                    elif robot.circles[3][2] == 'G': # circle 4
+                        robot.ID = 'ID10'
+            elif robot.circles[1][2] == 'G': # circle 2
+                if robot.circles[2][2] == 'P': # circle 3
+                    if robot.circles[3][2] == 'G': # circle 4
                         robot.ID = 'ID7'
-                    elif robot.circles[3][2] == 'G':
+                elif robot.circles[2][2] == 'G': # circle 3
+                    if robot.circles[3][2] == 'P': # circle 4
+                        robot.ID = 'ID3'
+        elif robot.circles[0][2] == 'G': # circle 1
+            if robot.circles[1][2] == 'P': # circle 2
+                if robot.circles[2][2] == 'P': # circle 3
+                    if robot.circles[3][2] == 'G': # circle 4
+                        robot.ID = 'ID5'
+                elif robot.circles[2][2] == 'G': # circle 3
+                    if robot.circles[3][2] == 'P': # circle 4
+                        robot.ID = 'ID1'
+            elif robot.circles[1][2] == 'G': # circle 2
+                if robot.circles[2][2] == 'P': # circle 3
+                    if robot.circles[3][2] == 'P': # circle 4
+                        robot.ID = 'ID11'
+                    elif robot.circles[3][2] == 'G': # circle 4
+                        robot.ID = 'ID6'
+                elif robot.circles[2][2] == 'G': # circle 3
+                    if robot.circles[3][2] == 'P': # circle 4
+                        robot.ID = 'ID2'
+                    elif robot.circles[3][2] == 'G': # circle 4
                         robot.ID = 'ID8'
+
 
 # angle()
 # E.H., Jan, 2019
@@ -336,12 +354,20 @@ def main():
 
     flag =  0
 
-    cap = cv2.VideoCapture(0) # 0 if your pc doesn't have a webcam, probably 1 if it does
-    #cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    #cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    cap = cv2.VideoCapture(cv2.CAP_DSHOW + 0) # 0 if your pc doesn't have a webcam, probably 1 if it does
+    # https://stackoverflow.com/questions/52043671/opencv-capturing-imagem-with-black-side-bars
+    # MSMF doesn't like being scaled up apparently, so switch from it (default) to DirectShow
+    # so we can scale up the resolution read from the camera
+
+    # Scaling up from 640x480 to HD 1280x720
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
+
 
     while(True):
         ret,frame = cap.read() # reading the video capture into a dummy var and frame
+
+        #cv2.waitKey(50)
         
         # Reinitializing robot data (prevents buildup of data accross frames)
         roboList = []
@@ -358,20 +384,23 @@ def main():
         ### convert the YUV image back to RGB format
         #frame_yuv = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
-        # HSV color masking
-        hsv= cv2.cvtColor(frame,cv2.COLOR_BGR2HSV)
+        blurred_img = cv2.bilateralFilter(frame,5,150,150) # blurring image for less errant circles
+                                                           # and better color recognition later
 
-        lower_rangeG = np.array([0,0,30])
-        upper_rangeG = np.array([180,255,255])
+        # HSV color space conversion
+        hsv= cv2.cvtColor(blurred_img,cv2.COLOR_BGR2HSV)
 
-        mask = cv2.inRange(hsv, lower_rangeG, upper_rangeG) # mask for original frame with only good color
-        result = cv2.bitwise_and(frame,frame,mask=mask)
-        cv2.imshow("masked image",result)
-        #cv2.imshow("masked dafe",frame)
+        # Color masking, not necessary due to blurring, but might be worth looking into further
+        #lower_rangeG = np.array([0,0,0]) # Hue, Saturation, Value mask lower limit
+        #upper_rangeG = np.array([180,255,255]) # " , " , " " upper limit
+
+        #mask = cv2.inRange(hsv, lower_rangeG, upper_rangeG) # mask for original frame with only good color
+        #result = cv2.bitwise_and(blurred_img,blurred_img,mask=mask)
+        result = blurred_img
+
+        cv2.imshow("blurred image",result)
   
         hsv_out_gray= cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
-
-        blurred_img = cv2.bilateralFilter(hsv_out_gray,9,75,75)
 
         # Some notes on the HoughCircles function:
         #  Utilizes edge detection to draw tangent lines, recognizing a circle where perpendicular lines to tangents
@@ -382,7 +411,7 @@ def main():
         #  minDist: Specifies minimum distance between circles (the 4th input to the function)
         #  
         # from documentation: cv2.HoughCircles(image, method, dp, minDist[, circles[, param1[, param2[, minRadius[, maxRadius]]]]]) → circles
-        circles = cv2.HoughCircles(blurred_img,cv2.HOUGH_GRADIENT,1,minDist = 20,param1=50,param2=25,minRadius=20,maxRadius=50)
+        circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist = 20,param1=75,param2=25,minRadius=15,maxRadius=50)
 
         cv2.waitKey(1) # cv2.waitKey() is required to display images- waits 1 millisecond here
 
@@ -398,9 +427,9 @@ def main():
                 cv2.circle(img,(circle[0],circle[1]),2,(0,0,255),3)
 
             if isinstance(ball, type(None)) == 0:
-                print('Ball found at ',ball.pos)
                 # Draw a blue circle on the ball
                 cv2.circle(img,(ball.pos[0],ball.pos[1]),10,(200,0,0),5)  
+                cv2.putText(img, str(ball.pos), (ball.pos[0]+20,ball.pos[1]+20), cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
 
             if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
                 for robot in roboList:
@@ -410,20 +439,23 @@ def main():
 
                     # Draw the robot circles seen robot by robot
                     # Draw a black circle on the centre of the robot
-                    cv2.circle(img,(robot.pos[0],robot.pos[1]),10,(0,0,0),5)
+                    cv2.circle(img,(robot.pos[0],robot.pos[1]),10,(0,0,0),3)
                     if isinstance(robot.angle, type(None)) == 0:
                         # Display the robot's angle
                         cv2.putText(img, str(round(robot.angle,1)), (robot.pos[0]+ 100, robot.pos[1] + 130), 
-                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 5)
+                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
                         # Display the robot's position
                         cv2.putText(img, str(robot.pos), (robot.pos[0]+ 100, robot.pos[1] + 100), 
-                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 5)
+                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
                         # Display the robot's ID
                         cv2.putText(img, robot.ID, (robot.pos[0]+ 100, robot.pos[1] + 70), 
-                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 5)
+                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+                        # Display the robot's Team
+                        cv2.putText(img, robot.team, (robot.pos[0]+ 100, robot.pos[1] + 40), 
+                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
                     for mark in robot.circles:
                         # Draw a black circle on every ID mark
-                        cv2.circle(img,(mark[0],mark[1]),10,(0,0,0),5)  
+                        cv2.circle(img,(mark[0],mark[1]),10,(0,0,0),3)  
             flag = 0 # go ahead and print "no circles detected" again
 
         elif(flag == 0):
@@ -433,12 +465,12 @@ def main():
         # Display drawn on frame and original frame
         cv2.imshow('circles on stream',img)
         cv2.imshow('original stream',frame)
-        cv2.waitKey(250)
-        if cv2.waitKey(1) & 0xFF == ord('\r'): # if enter is pressed, stop running
+
+        if cv2.waitKey(100) & 0xFF == ord('\r'): # if enter is pressed, stop running
             break
 
 
-    cv2.destroyAllWindows(0)
+    cv2.destroyAllWindows()
  
  
 if __name__== "__main__":
