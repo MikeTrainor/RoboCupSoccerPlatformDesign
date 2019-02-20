@@ -1,5 +1,8 @@
 %% Embedded System PID Testing
-% This function reads an available COM port and plots the received data
+% This function reads a selected COM port and plots the received data
+% Author: Mike Trainor
+% Date: February 19th, 2019
+% Revision: 2
 
 %% Get the Data
 clear
