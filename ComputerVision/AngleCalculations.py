@@ -384,8 +384,11 @@ def main():
         ### convert the YUV image back to RGB format
         #frame_yuv = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
-        blurred_img = cv2.bilateralFilter(frame,5,150,150) # blurring image for less errant circles
-                                                           # and better color recognition later
+        # blurring image for less errant circles and better color recognition later
+        # d = 5 as that is the recommended nearest neighbour for real time
+        # sigmaColor = 150 to produce large blending effect
+        # sigmaSpace is limited by d, so I suspect it doesn't matter
+        blurred_img = cv2.bilateralFilter(frame,5,150,150) 
 
         # HSV color space conversion
         hsv= cv2.cvtColor(blurred_img,cv2.COLOR_BGR2HSV)
