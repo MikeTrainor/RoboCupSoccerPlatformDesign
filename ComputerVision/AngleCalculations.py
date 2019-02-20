@@ -1,11 +1,7 @@
 import numpy as np
 from scipy.spatial import distance as dist
-import argparse
 import copy
 import math
-import os
-from PIL import Image
-import glob
 import cv2
 
 class robotClass:
