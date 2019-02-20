@@ -1,40 +1,45 @@
 %% Embedded System PID Testing
-
+% This function reads an available COM port and plots the received data
 
 %% Get the Data
 clear
 clc
 
-desvel = 150;
+desvel = 150; %Desired Velocity
+n = 5; %Length of sample
 
 if ~isempty(instrfind)
     fclose(instrfind);
     delete(instrfind);
 end
 
-s1 = serial('COM5', 'BaudRate', 9600);
+s1 = serial('COM5', 'BaudRate', 9600); %Specify the required COM port
 fopen(s1);
 
 % Collecting the data
-for i = 1:5
-    data{i} = fgets(s1);
-    e{i}   = sscanf(data{i}, '%2x');
+for i = 1:n
+    port_read{i} = fgets(s1);
+    data{i}   = sscanf(port_read{i}, '%2x'); %Decode number stream every two numbers
 end
-e{1}(251:256) = e{1}(250); %Make the cell 256 long
 
-% Plotting the error
+% Correcting the size of the first cell of data samples 
+if(length(data{1}) ~= length(data{2}))
+    data{1}(end:length(data{2})) = data{1}(end); %Make the cell length the same as the others, not great as it just duplicates the last value
+end
+
+% Plotting the data
 figure()
-x = 1:256;
-for i = 1:5
+x = 1:length(data{1});
+for i = 1:n
     hold on
-    plot(x,e{i}, 'b'); %Plot the error
-    x(:) = x(:) + 256
+    plot(x,data{i}, 'b'); %Plot the error
+    x(:) = x(:) + length(data{1}); %Go to next cell
 end
 
-data_mean = cellfun(@mean,e); %Find the mean of the data
+data_mean = cellfun(@mean,data); %Find the mean of the data
 data_mean = mean(data_mean);
-plot([0,256*5],[desvel,desvel], 'r');
-plot([0,256*5],[data_mean,data_mean],'g');
+plot([0,length(data{1})*5],[desvel,desvel], 'r');
+plot([0,length(data{1})*5],[data_mean,data_mean],'g');
 
 title('Ramp Response Kp = 8, Ki = -2, Kd = 2')
 xlabel('Samples')
@@ -46,6 +51,3 @@ L(2) = plot(nan, nan, 'g');
 L(3) = plot(nan, nan, 'r');
 legend(L, {'Measured Velocity (RPM)', 'Measured Velocity Mean (RPM)', 'Desired Velocity (RPM)'})
 hold off
-
-
-
