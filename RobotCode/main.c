@@ -44,20 +44,30 @@
  * PTB8, PTB9 Direction 1, Direction 2
  */
 
+/*General Information
+ * NO LOAD INFORMATION
+ * Minimum speed obtainable for the motor is approximately 43 RPM
+ * Maximum speed obtainable for the motor is approximately 410 RPM although the error gets rough
+ *
+ * UNDER LOAD INFORMATION
+ *
+ */
+
 // Global Variables
 float des_vel, mes_vel = 0, des_vel_prev, des_vel2, mes_vel2 = 0, des_vel_prev2;
 float e = 0, e_Prev = 0, e2 = 0, e_Prev2 = 0;
 float P_Term = 0, I_Term = 0, I_Term2 = 0, I_Term_prev, I_Term_prev2, D_Term = 0, P_Term2 = 0, D_Term2 = 0;
 int I_Term_Min = -0xFFFF, I_Term_Max = 0xFFFF;
 float speed_motor0 = 0, speed_motor1 = 0;
-float Kp = 5, Kd = 5, Ki = 1.05; //Current Best is Kp = 5, Kd = 5, Ki = 1.05, Prev Best is Kp = 5, Kd = 5, Ki = 1.1
+float Kp = 5, Kd = 5, Ki = 1.05; //Current Best is Kp = 5, Kd = 5, Ki = 1.05, Prev Best is Kp = 5, Kd = 5, Ki = 1.1, this is for step input
+//float Kp = 50, Kd = 10, Ki = 15;
 unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
 unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
 float u = 0, u2 = 0;
-float r = 0, r2 = 0;
+float r = 5, r2 = 5;
 unsigned int direction = 0, direction2 = 0; //Values for direction
-float ramp_rate = 5, ramp_rate2 = 5; //Ramp rate for motors
+float ramp_start = 5, ramp_end = 250, ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
 int quad_count1 = 0, quad_count2 = 0;
 float dt1 = 0, dt2 = 0; //dt is an ideal value calculated from 255/15625
 int test_count = 0;
@@ -100,7 +110,7 @@ void TPM2_IRQHandler() {
 		speed_motor1 = PID_Control1();
 
 		// Set PWM
-		TPM2_C0V = TPM_CnV_VAL(0x00) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
+		TPM2_C0V = TPM_CnV_VAL(0x1F40);// + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
 
 		//Set Motor Direction
 		GPIOB_PDOR |= (1 << 9); //Set as Logic 1 Output
@@ -264,8 +274,6 @@ void init_TPM() {
 
 	TPM2_C0SC = (TPM_CnSC_MSB_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 5 mode as Center Aligned PWM mode
 	TPM2_MOD = 0x1F40; //500 Hz PWM
-	//TPM0_MOD = (uint32_t)((TPM0_MOD & (uint32_t)~(uint32_t)(TPM_MOD_MOD(0xFFF6))) | (uint32_t)(TPM_MOD_MOD(0x09)));  // TPM MOD =9 ,it means the TPM cycle is 10us
-	//TPM2_SC |= TPM_SC_PS_MASK & 0x1; //Divide clock down by 127
 	TPM2_SC = (uint32_t) ((TPM2_SC & (uint32_t) ~(uint32_t) (
 	TPM_SC_DMA_MASK |
 	TPM_SC_CPWMS_MASK | TPM_SC_CMOD(0x02))) | (uint32_t) (
@@ -273,14 +281,12 @@ void init_TPM() {
 	TPM_SC_TOIE_MASK | TPM_SC_CMOD(0x01)));
 	TPM2_SC |= TPM_SC_PS_MASK & 0x7; //Divide clock down by 127
 
-	//Init TPM1
+	//Init TPM1, Modified to PTE20, PTE21
 	SIM_SCGC6 |= SIM_SCGC6_TPM1_MASK; // Enable TPM1
-	SIM_SCGC5 |= SIM_SCGC5_PORTC_MASK; // Initialize PORT A
-	PORTA_PCR12 |= PORT_PCR_MUX(3); //PTE20 Outputting TPM1_CH0
+	SIM_SCGC5 |= SIM_SCGC5_PORTC_MASK; // Initialize PORT C
+	PORTA_PCR12|= PORT_PCR_MUX(3); //PTA12 Outputting TPM1_CH0
 
 	TPM1_C0SC = (TPM_CnSC_MSB_MASK | TPM_CnSC_ELSB_MASK); // choose the channel 0 mode as Center Aligned PWM mode
-	//TPM1_MOD = (uint32_t)((TPM1_MOD & (uint32_t)~(uint32_t)(TPM_MOD_MOD(0xFFF6))) | (uint32_t)(TPM_MOD_MOD(0x09)));  // TPM MOD =9 ,it means the TPM cycle is 10us
-	//TPM1_MOD = 0x9;
 	TPM1_MOD = 0x1F40; //500 Hz PWM
 	//TPM1_SC |= TPM_SC_PS_MASK & 0x1; //Divide clock down by 127
 	TPM1_SC = (uint32_t) ((TPM1_SC & (uint32_t) ~(uint32_t) (
@@ -387,7 +393,16 @@ int PID_Control0() {
 	if(T2 == 0){
 		mes_vel = 0; //Accounting for the case of having desired velocity equal to zero
 	}
-	ramp_rate = 7; //Ramp input over 5 function calls
+
+	//Checking to make sure the speed is not below 5
+	if(r < ramp_start && r != 0){
+		r = ramp_start;//Ensure r does not go below 5
+	}
+	if(r > ramp_end){
+		r = ramp_end;
+	}
+
+	ramp_rate = 0.1; //Ramp input
 
 	if(r < des_vel){
 		r = r + ramp_rate; //Ramp up
@@ -428,14 +443,23 @@ int PID_Control0() {
 int PID_Control1() {
 
 	dt2 = PID_count2*0.51;//Count*one Periodic timer, 255/500 = 0.51. 500 is the PWM Frequency and 255 is the register size
-	des_vel2 = 50;
+	des_vel2 = 500;
 	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3 * 2); // Motor Speed in RPM at the wheel
 
 	if(T3 == 0){
 		mes_vel2 = 0; //Accounting for the case of having desired velocity equal to zero
 	}
 
-	ramp_rate2 = 5; //Ramp input over 200 function calls
+	//Checking to make sure the speed is not below 5
+	/*if(r2 < ramp_start && r2 != 0){
+		r2 = ramp_start;//Ensure r does not go below 5
+	}*/
+	if(r2 > ramp_end){
+		r2 = ramp_end;
+	}
+
+	ramp_rate2 = 0.1; //Ramp input
+
 	if(r2 < des_vel2){
 		r2 = r2 + ramp_rate2; //Ramp up
 
@@ -485,10 +509,12 @@ void init_delay() {
 //Input Delay length in ms
 int delay(unsigned int length_ms) {
 
+    // Start the timer and wait for it to reach the compare value
+    LPTMR0_CSR = LPTMR_CSR_TEN_MASK;
 	LPTMR0_CMR = length_ms;             // Set compare value (in ms)
 
     // Start the timer and wait for it to reach the compare value
-    LPTMR0_CSR = LPTMR_CSR_TEN_MASK;
+   // LPTMR0_CSR = LPTMR_CSR_TEN_MASK;
 
     while (!(LPTMR0_CSR & LPTMR_CSR_TCF_MASK)){}
 
@@ -596,6 +622,7 @@ int main(void) {
 	init_TPM();
 	init_direction();
 	//init_led();
+	init_delay();
 
 	UART_Interface_Init(9600);
 
@@ -608,6 +635,7 @@ int main(void) {
 	for (;;) {
 
 		decToHexa(abs((int)mes_vel2));
+		//UART0_Putchar(hexaDeciNum[2]); //Needed is the velocity is above 255 RPM
 		UART0_Putchar(hexaDeciNum[1]);
 		UART0_Putchar(hexaDeciNum[0]);
 		time = time + 1;
