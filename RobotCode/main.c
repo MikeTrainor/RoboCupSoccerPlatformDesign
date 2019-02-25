@@ -45,7 +45,11 @@
  */
 
 /*General Information
- * NO LOAD INFORMATION
+ * NO LOAD INFORMATION & Step
+ * Minimum speed obtainable for the motor is approximately 43 RPM
+ * Maximum speed obtainable for the motor is approximately 410 RPM although the error gets rough
+ *
+ * NO LOAD INFORMATION & Ramp
  * Minimum speed obtainable for the motor is approximately 43 RPM
  * Maximum speed obtainable for the motor is approximately 410 RPM although the error gets rough
  *
@@ -65,15 +69,15 @@ unsigned int T1_Prev, T2_Prev, T3_Prev, T4_Prev;
 unsigned int T1_Current = 0, T2_Current = 0, T3_Current = 0, T4_Current = 0;
 unsigned int T1, T2, T3, T4;
 float u = 0, u2 = 0;
-float r = 5, r2 = 5;
+float r = 50, r2 = 50;
 unsigned int direction = 0, direction2 = 0; //Values for direction
-float ramp_start = 5, ramp_end = 250, ramp_rate = 0, ramp_rate2 = 0; //Ramp rate for motors
+float ramp_start = 50, ramp_end = 410, ramp_rate = 8, ramp_rate2 = 8; //Ramp rate for motors could be as low as 0.2 or as high as 410?
 int quad_count1 = 0, quad_count2 = 0;
 float dt1 = 0, dt2 = 0; //dt is an ideal value calculated from 255/15625
 int test_count = 0;
 int flag1 = 1, flag2 = 1; //Interrupt flags
 char cout;
-char hexaDeciNum[4];
+char hexaDeciNum[4] = {0,0,0,0};
 int time = 0;
 int Beta = 2, FP_Shift = 1;
 signed long SmoothDataFP, SmoothDataINT;
@@ -110,7 +114,7 @@ void TPM2_IRQHandler() {
 		speed_motor1 = PID_Control1();
 
 		// Set PWM
-		TPM2_C0V = TPM_CnV_VAL(0x1F40);// + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
+		TPM2_C0V = TPM_CnV_VAL(0x00) + speed_motor1;  //The duty cycle is equal to 0xFF/(speed_motor1)*100%
 
 		//Set Motor Direction
 		GPIOB_PDOR |= (1 << 9); //Set as Logic 1 Output
@@ -394,15 +398,18 @@ int PID_Control0() {
 		mes_vel = 0; //Accounting for the case of having desired velocity equal to zero
 	}
 
-	//Checking to make sure the speed is not below 5
-	if(r < ramp_start && r != 0){
-		r = ramp_start;//Ensure r does not go below 5
-	}
+
 	if(r > ramp_end){
 		r = ramp_end;
 	}
 
-	ramp_rate = 0.1; //Ramp input
+	//Ramping
+	if(des_vel <= 50){
+		ramp_rate = 8; //Default ramp rate
+	}
+	else{
+		ramp_rate = des_vel/75; //Faster Ramp Rate
+	}
 
 	if(r < des_vel){
 		r = r + ramp_rate; //Ramp up
@@ -411,7 +418,7 @@ int PID_Control0() {
 			r = des_vel; //Limit if it over shoots the desired
 		}
 	}
-	else if(r > des_vel){
+	if(r > des_vel){
 		r = r - ramp_rate; //Ramp down
 
 		if(r < des_vel){
@@ -443,22 +450,28 @@ int PID_Control0() {
 int PID_Control1() {
 
 	dt2 = PID_count2*0.51;//Count*one Periodic timer, 255/500 = 0.51. 500 is the PWM Frequency and 255 is the register size
-	des_vel2 = 500;
+	des_vel2 = 150;
+	if(time >= 500){
+		des_vel2 = 0;
+	}
+
 	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3 * 2); // Motor Speed in RPM at the wheel
 
 	if(T3 == 0){
 		mes_vel2 = 0; //Accounting for the case of having desired velocity equal to zero
 	}
 
-	//Checking to make sure the speed is not below 5
-	/*if(r2 < ramp_start && r2 != 0){
-		r2 = ramp_start;//Ensure r does not go below 5
-	}*/
+	//Ramping
+	if(des_vel2 <= 50){
+		ramp_rate2 = 8; //Default ramp rate
+	}
+	else{
+		ramp_rate2 = des_vel2/75; //Faster Ramp Rate
+	}
+
 	if(r2 > ramp_end){
 		r2 = ramp_end;
 	}
-
-	ramp_rate2 = 0.1; //Ramp input
 
 	if(r2 < des_vel2){
 		r2 = r2 + ramp_rate2; //Ramp up
@@ -467,7 +480,7 @@ int PID_Control1() {
 			r2 = des_vel2; //Limit if it over shoots the desired
 		}
 	}
-	else if(r2 > des_vel2){
+	if(r2 > des_vel2){
 		r2 = r2 - ramp_rate2; //Ramp down
 
 		if(r2 < des_vel2){
@@ -475,7 +488,7 @@ int PID_Control1() {
 		}
 	}
 
-	e2 = des_vel2 - mes_vel2; //Error, Ensure Negative Feedback
+	e2 = r2 - mes_vel2; //Error, Ensure Negative Feedback
 	D_Term2 = (e2 - e_Prev2)/dt2; //Slope
 
 	u2 = fabs((e2*Kp + I_Term2*Ki + D_Term2*Kd));
@@ -635,6 +648,7 @@ int main(void) {
 	for (;;) {
 
 		decToHexa(abs((int)mes_vel2));
+		//UART0_Putchar(hexaDeciNum[3]); //Needed is the velocity is above 255 RPM
 		//UART0_Putchar(hexaDeciNum[2]); //Needed is the velocity is above 255 RPM
 		UART0_Putchar(hexaDeciNum[1]);
 		UART0_Putchar(hexaDeciNum[0]);
