@@ -1,32 +1,3 @@
-/*
- * Copyright (c) 2015, Freescale Semiconductor, Inc.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
- *
- * o Redistributions of source code must retain the above copyright notice, this list
- *   of conditions and the following disclaimer.
- *
- * o Redistributions in binary form must reproduce the above copyright notice, this
- *   list of conditions and the following disclaimer in the documentation and/or
- *   other materials provided with the distribution.
- *
- * o Neither the name of Freescale Semiconductor, Inc. nor the names of its
- *   contributors may be used to endorse or promote products derived from this
- *   software without velecific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, velECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
- * ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 
 #include "MKL25Z4.h"
 #include "math.h"
@@ -391,7 +362,7 @@ void init_led() {
 int PID_Control0() {
 
 	dt1 = PID_count1*0.51;//Count*one Periodic timer, 255/500 = 0.51. 500 is the PWM Frequency and 255 is the register size
-	des_vel = 50;//Set the desired value
+	//des_vel = 50;//Set the desired value
 	mes_vel = (2 * 3 * 2e6 * (30/3)) / (700 * T2 * 2); //Calculate the measured speed
 
 	if(T2 == 0){
@@ -450,9 +421,9 @@ int PID_Control0() {
 int PID_Control1() {
 
 	dt2 = PID_count2*0.51;//Count*one Periodic timer, 255/500 = 0.51. 500 is the PWM Frequency and 255 is the register size
-	des_vel2 = 150;
-	if(time >= 500){
-		des_vel2 = 0;
+	//des_vel2 = 45;
+	if(time >= 600){
+		//des_vel2 = 0;
 	}
 
 	mes_vel2 = (2 * 3 * 2e6 * (30/3)) / (700 * T3 * 2); // Motor Speed in RPM at the wheel
@@ -647,12 +618,14 @@ int main(void) {
 
 	for (;;) {
 
-		decToHexa(abs((int)mes_vel2));
-		//UART0_Putchar(hexaDeciNum[3]); //Needed is the velocity is above 255 RPM
+		//decToHexa(abs((int)mes_vel2));
+		//UART0_Putchar(hexaDeciNum[3]); //Needed is the velocity is above  RPM
 		//UART0_Putchar(hexaDeciNum[2]); //Needed is the velocity is above 255 RPM
-		UART0_Putchar(hexaDeciNum[1]);
-		UART0_Putchar(hexaDeciNum[0]);
-		time = time + 1;
+		//UART0_Putchar(hexaDeciNum[1]);
+		//UART0_Putchar(hexaDeciNum[0]);
+		//time = time + 1;
+		des_vel = UART0_Getchar();//Right Motor Speed
+		des_vel2 = UART0_Getchar();//Left Motor Speed
 
 	}
 
