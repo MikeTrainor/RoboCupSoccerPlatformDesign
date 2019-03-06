@@ -47,8 +47,8 @@ DigitalOut dir_motor1(PTE4); //Direction Motor 1
 DigitalOut dir_motor2(PTE5); //Direction Motor 2
 
 //PWM Outputs
-PwmOut PWM_motor1(PTE20); //PWM Motor2
-PwmOut PWM_motor2(PTE22); //PWM Motor1
+PwmOut PWM_motor1(PTE20); //PWM Motor1
+PwmOut PWM_motor2(PTE22); //PWM Motor2
 
 //Kick Output
 DigitalOut kick(PTB10); //Kick command
