@@ -6,9 +6,10 @@ import cv2
 import serial
 import time
 from fractions import gcd
+import sys
 
 
-#KL25=serial.Serial('COM5',2048000,timeout=1)#open serial port
+KL25=serial.Serial('COM4',2048000,timeout=1)#open serial port
 # two Lists used for real time plottting of the left motor and right motor
 Rmotor= []
 Lmotor= []
@@ -46,19 +47,19 @@ IDdRobots = []      # potentially used for previous state- probably updated ever
 
 def colorID(hue, sat, val):
     color = 'X' # Default case, 'X' will print an error for an unrecognized element
-    if(val > 40):
+    if(val > 100):
         if (hue < 137 and hue >= 90):
             color = 'B' # Blue team circle
-        elif (hue < 35 and hue > 20 and sat > 40):
+        elif (hue < 35 and hue > 25 and sat > 80):
             color = 'Y' # Yellow team circle
         elif (hue >= 140 or (hue <= 8 and sat < 120)): # Must address loop in hue
             color = 'P' # Purple ID circle
         elif (hue < 90 and hue >= 43):
             color = 'G' # Green ID circle
-        elif (hue <= 20 and hue >= 3 and sat > 40):
+        elif ((hue <= 20 and hue >= 3 and sat > 40) or (hue <=35 and hue >20 and sat < 80)):
             color = 'O' # Ball!
-        else:
-            print(hue,sat,val) # good for debugging unrecognized circles
+        #else:
+            #print(hue,sat,val) # good for debugging unrecognized circles
 
     return color 
 
@@ -108,36 +109,47 @@ def assignIDmarks(robot):
     #if isinstance(roboList, type(None)) == 0:
         # Assign each robot its four closest marks
         #for robot in roboList:
-    closestMarks = [0,0,0,0] # indices of the closest four marks to the robot center
+    closestMarks = [] # indices of the closest four marks to the robot center
                                 # [index in roboIDmarks, euclidean distance]
-    furthestMark = [0,0] # [index in closestMarks, euclidean distance]
+    #furthestMark = [0,0] # [index in closestMarks, euclidean distance]
 
     # Assign this robot its four closest marks
-    for i, mark in enumerate(list(roboIDmarks)):
+    #for i, mark in enumerate(list(roboIDmarks)):
+    for mark in roboIDmarks:
         markDist = dist.euclidean([mark[0],mark[1]],robot.pos)
+
+        if(markDist < robot.radius and len(robot.circles) < 4):
+            robot.newMarking(mark)
+            closestMarks.append(markDist)
+        elif(markDist < robot.radius):
+            for i, currentcircle in enumerate(list(robot.circles)):
+                if markDist < closestMarks[i]:
+                    robot.circles[i] = mark
+                    closestMarks[i] = markDist
+
 
         # If there aren't already four marks given to the robot, 
         # just give it whatever is available in order to initialize robot.circles[]
-        if len(robot.circles) < 4:
-            if markDist < robot.radius:
-                robot.newMarking(mark)
-            closestMarks[i] = [i, markDist]
-            if markDist > furthestMark[1]:
-                furthestMark = [i, markDist]
+        #if len(robot.circles) < 4:
+        #    if markDist < robot.radius:
+        #        robot.newMarking(mark)
+        #    closestMarks[i] = [i, markDist]
+        #    if markDist > furthestMark[1]:
+        #        furthestMark = [i, markDist]
 
-        # If there is a closer value than the furthest currently in robot.circles[]
-        # replace the current furthest with this new one 
-        elif markDist < furthestMark[1]:
-            if markDist < robot.radius:
-                robot.circles[furthestMark[0]] = mark
-            closestMarks[furthestMark[0]] = [i, markDist]
+        ## If there is a closer value than the furthest currently in robot.circles[]
+        ## replace the current furthest with this new one 
+        #elif markDist < furthestMark[1]:
+        #    if markDist < robot.radius:
+        #        robot.circles[furthestMark[0]] = mark
+        #    closestMarks[furthestMark[0]] = [i, markDist]
 
-            furthestMark[1] = markDist
+        #    furthestMark[1] = markDist
 
-            # redetermine the furthest mark within the current closest marks
-            for j, qark in enumerate(closestMarks):
-                if qark[1] > furthestMark[1]:
-                    furthestMark = [j, qark[1]]
+        #    # redetermine the furthest mark within the current closest marks
+        #    for j, qark in enumerate(closestMarks):
+        #        if qark[1] > furthestMark[1]:
+        #            furthestMark = [j, qark[1]]
 
         else:
             print(robot.radius)
@@ -227,9 +239,10 @@ def angle(robot):
             a = dist.euclidean([temp1[0],temp1[1]],robot.pos) # Distance from ID 1 to centre
             b = dist.euclidean([temp2[0],temp2[1]],robot.pos) # Distance from ID 2 to centre
             c = dist.euclidean([temp1[0],temp1[1]],[temp2[0],temp2[1]]) # Distance from ID 1 to ID 2
-
-            theta = math.degrees(math.acos((c**2 - b**2 - a**2)/(-2.0 * a * b)))
-
+            try:
+                theta = math.degrees(math.acos((c**2 - b**2 - a**2)/(-2.0 * a * b))) #CRASHES ON RARE OCCASIONS
+            except:
+                print('Theta Error')
             if theta > 100 and theta < 130: # Ideally 114.84 degrees
                 topIDs.append(temp1)
                 topIDs.append(temp2)
@@ -264,8 +277,8 @@ def angle(robot):
         yDiff2 = robot.pos[1] - yMean2
         # Negative for both of these to get an angle that is front facing
         theta2 = math.degrees(math.atan2(yDiff2,xDiff2))
-    #else:
-        #print("bottom is wrong")
+    else:
+        print("bottom is wrong")
 
     # Averages the vectors to get a better approx of the true angle
     if theta2 != 999 and theta1 != 999:
@@ -444,7 +457,7 @@ def main():
         #  minDist: Specifies minimum distance between circles (the 4th input to the function)
         #  
         # from documentation: cv2.HoughCircles(image, method, dp, minDist[, circles[, param1[, param2[, minRadius[, maxRadius]]]]]) → circles
-        circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist = 20,param1=50,param2=20,minRadius=2,maxRadius=15)
+        circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist = 5,param1=50,param2=20,minRadius=1,maxRadius=15)
 
         cv2.waitKey(1) # cv2.waitKey() is required to display images- waits 1 millisecond here
 
@@ -506,27 +519,27 @@ def main():
 
         
         packet = bytearray()
-        packet.append(0xff)
-        packet.append(0x01)  #id
-        packet.append(0x20)  #mtr1
-        packet.append(0x01)  #dir1
-        packet.append(0xdf)  #mtr2
-        packet.append(0x01)  #dir2
-        packet.append(0x01)  #kick
-        packet.append(0xff)
+        #packet.append(0xff)
+        #packet.append(0x01)  #id
+        #packet.append(0x30)  #mtr1
+        #packet.append(0x01)  #dir1
+        #packet.append(0x30)  #mtr2
+        #packet.append(0x01)  #dir2
+        #packet.append(0x01)  #kick
+        #packet.append(0xff)
 
         #KL25.write(packet)
-        #data = KL25.read(4)
-        #print(data.decode('ISO-8859-1'))
+        #data = KL25.read(4) #Reading and Printing slows down the system incredibly, do not use for the demonstration
+        #print(data.decode('ISO-8859-1')) #Reading and Printing slows down the system incredibly, do not use for the demonstration
 
         for rob in roboList:
-            if isinstance(roboIDmarks, type(None)) == 0:
+            if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
                 #Error In Position
                 ####### Position Control #######
-                #error1 = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5
-                #derivative1=(error1-error_prior1)/dt
-                #error_prior1=error1
-                #u1=  ( kp1*error1 )   +  ( kd1*derivative1 )
+                error1 = ((0-rob.pos[0])**2+(0-rob.pos[1])**2)**0.5
+                derivative1=(error1-error_prior1)/dt
+                error_prior1=error1
+                u1=  ( kp1*error1 )   +  ( kd1*derivative1 )
 
 
                 ####### Angle Control #######
@@ -539,11 +552,20 @@ def main():
                 #error2= (180+57.2958*(math.atan2((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))))-rob.angle
                 #error2= math.degrees((math.atan2(approach_y,approach_x)))#-rob.angle
                 error2=math.degrees((math.atan2(0-rob.pos[1],0-rob.pos[0])))-rob.angle
-                if np.sign(error2)==-1:
+                #if np.sign(error2)==-1:
+                #   error2=error2
+                #else:
+                #   error2=error2-360
+                #regulate the angle to reduce ambiguity
+                if (abs(error2)<180):
                     error2=error2
+                elif (np.sign(error2)==-1):
+                    error2=error2+360
+                elif (np.sign(error2)==1):
+                    error2=error-360
                 else:
-                    error2=error2-360
-                
+                    print("done")
+
                 #print(error2)
                 #print(180+57.2958*(np.arctan((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))),rob.angle)
                 derivative2=(error2-error_prior2)
@@ -551,10 +573,10 @@ def main():
                 u2=  (kp2*error2)   +   (kd2*derivative2)
              
                 ## Setting limits to the inputs 
-                #$if(u1 > umax):
-                  #  u1=umax
-               # if(u1 < -umax):
-                #    u1 = -umax
+                if(u1 > umax):
+                   u1=umax
+                if(u1 < -umax):
+                   u1 = -umax
 
                 if(u2 > u2max):
                     u2=u2max
@@ -562,19 +584,29 @@ def main():
                     u2 = -u2max
                 ## Normalizing the inputs to be of similar magnitude
                 #upos= u1*500/umax
-                utheta = u2*500/u2max
+                #utheta = u2*500/u2max
                                 
                 # Assigning Individual Wheel velocities
                 #vr=(2*u1+u2*L)/(2*R)
                 #vl=(2*u1-u2*L)/(2*R)
-                u1=0
+                #u1=0
                 vr= u1 + u2
                 vl= u1 - u2
-                
+
                 # Assigning the direction of motors based on the wheel velocities sign
 
+                if (error2>=-15 and error2<=15):
+                    error2=error2
+                else:	
+                    if np.sign(error2)==-1:
+                        dirR=1
+                        dirL=0
+                    elif np.sign(error2)==1:
+                        dirR=0
+                        dirL=1
+
                 #if(np.sign(vr) == 1):
-                    #dirR= 0x00
+                #dirR= 0x00
                 #if(np.sign(vr) == -1):
                 #    dirR= 0x01
 
@@ -584,12 +616,12 @@ def main():
                 #if(np.sign(vl) == -1):
                 #    dirL= 0x01
 
-                if(np.sign(error2) == 1):
-                    dirL = 0x00
-                    dirR = 0x01
-                if(np.sign(error2) == -1):
-                    dirL = 0x01
-                    dirR = 0x00
+                #if(np.sign(error2) == 1):
+                #    dirL = 0x00
+                #   dirR = 0x01
+                #if(np.sign(error2) == -1):
+                #   dirL = 0x01
+                #  dirR = 0x00
                 
                 # Remove the sign in motor velocities
                 Vr = abs(int(vr))
@@ -605,15 +637,15 @@ def main():
                 else:
                     kick = 0
 
-                #packet.append(0xFF)
-                #packet.append(0x01)  #Robot ID
-                #packet.append(VrHex) #VrHex
-                #packet.append(dirR)  #dirR
-                #packet.append(VlHex) #VlHex
-                #packet.append(dirL)  #dirL
-                #packet.append(kick)  #kick
-                #packet.append(0xFF)
-                #KL25.write(packet)
+                packet.append(0xFF)
+                packet.append(0x01)  #Robot ID
+                packet.append(VrHex) #VrHex
+                packet.append(dirR)  #dirR
+                packet.append(VlHex) #VlHex
+                packet.append(dirL)  #dirL
+                packet.append(kick)  #kick
+                packet.append(0xFF)
+                KL25.write(packet)
                 #data = KL25.read(4)
                 #print(data.decode('ISO-8859-1'))
 
