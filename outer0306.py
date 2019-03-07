@@ -536,7 +536,7 @@ def main():
 
         for rob in roboList:
             if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
-				if (rob.angle-test >=10):
+				if (abs(rob.angle-test) >=10):
 					rob.angle=test#something is wrong with the angle measurement
 
 
