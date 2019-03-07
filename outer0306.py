@@ -536,23 +536,14 @@ def main():
 
         for rob in roboList:
             if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
-              
+				if (rob.angle-test >=10):
+					rob.angle=test#something is wrong with the angle measurement
 
 
 				####### Angle Control #######
-                #approach_x = (320-rob.pos[0])
-                #approach_y = (240-rob.pos[1])
-                #common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
-                #approach_x = approach_x/common_divisor #Divide by common divisor
-                #approach_y = approach_y/common_divisor #Divide by common divisor
-                #error2= (180+57.2958*(np.arctan((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))))-rob.angle
-                #error2= (180+57.2958*(math.atan2((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))))-rob.angle
-                #error2= math.degrees((math.atan2(approach_y,approach_x)))#-rob.angle
+                
 				error2=math.degrees((math.atan2(0-rob.pos[1],0-rob.pos[0])))-rob.angle
-                #if np.sign(error2)==-1:
-                #   error2=error2
-                #else:
-                #   error2=error2-360
+              
                 #regulate the angle to reduce ambiguity
                 if (abs(error2)<180):
                     error2=error2
@@ -563,11 +554,11 @@ def main():
                 else:
                     print("done")
 
-                #print(error2)
-                #print(180+57.2958*(np.arctan((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))),rob.angle)
+                
                 derivative2=(error2-error_prior2)
                 error_prior2=error2
                 u2=  (kp2*error2)   +   (kd2*derivative2) 
+		
 				
 				
 				
@@ -665,7 +656,7 @@ def main():
                 KL25.write(packet)
                 #data = KL25.read(4)
                 #print(data.decode('ISO-8859-1'))
-
+				test=rob.angle
 
 
 
