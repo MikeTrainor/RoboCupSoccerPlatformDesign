@@ -78,8 +78,6 @@ float PWM_Period = 2000; //in micro-seconds
 // data array containing the received packet from the UART 
 uint8_t Received[TransferSize];
 
-//Testing Digital Input for LED
-DigitalOut led3(LED3);
 
 int main(){
     pc.baud(9600);  // Set max uart baud rate
@@ -107,11 +105,7 @@ int main(){
             get_Transmitted_Data();
             //pc.putc(pc.getc());
         }
-            /*if(test == '1'){
-                led3 = !led3;  
-                wait(1); //Delay 1 second
-            }*/
-            
+
             /*
             dir_motor2 = pc.getc(); //Get Left Motor Direction
             des_vel2 = pc.getc(); //Get Left Motor Speed
@@ -160,7 +154,6 @@ void get_Transmitted_Data(){
         des_vel2 = Received[4];
         dir_motor2=Received[5];
         kick  = Received[6];
-        led3 = !led3;  
         wait(0.5); //Delay 1 second
         }
 }
