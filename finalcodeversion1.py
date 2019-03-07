@@ -396,6 +396,7 @@ def main():
     kd2=kd1
     VrMax = 300
     VlMax = VrMax 
+	test=0
    
     cap = cv2.VideoCapture(cv2.CAP_DSHOW + 1) # 0 if your pc doesn't have a webcam, probably 1 if it does
     # https://stackoverflow.com/questions/52043671/opencv-capturing-imagem-with-black-side-bars
@@ -517,7 +518,7 @@ def main():
         if cv2.waitKey(1) & 0xFF == ord('\r'): # if enter is pressed, stop running
             break
 
-        test = 100
+      
 
         
         packet = bytearray()
@@ -535,21 +536,15 @@ def main():
         #print(data.decode('ISO-8859-1')) #Reading and Printing slows down the system incredibly, do not use for the demonstration
 
         for rob in roboList:
-            if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
+            if (isinstance(rob.ID!='-no ID!-')) & (isinstance(roboList, type(None)) == 0):
                 if (rob.ID == '-no ID!-'):
                     vr=0
                     vl=0  
-
-
+				if (abs(rob.angle-test)>=30):
+					test=rob.angle
+				rob.angle=test
 				####### Angle Control #######
-                #approach_x = (320-rob.pos[0])
-                #approach_y = (240-rob.pos[1])
-                #common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
-                #approach_x = approach_x/common_divisor #Divide by common divisor
-                #approach_y = approach_y/common_divisor #Divide by common divisor
-                #error2= (180+57.2958*(np.arctan((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))))-rob.angle
-                #error2= (180+57.2958*(math.atan2((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))))-rob.angle
-                #error2= math.degrees((math.atan2(approach_y,approach_x)))#-rob.angle
+                
                 error2=math.degrees((math.atan2(0-rob.pos[1],0-rob.pos[0])))-rob.angle
                 
                 #if np.sign(error2)==-1:
@@ -566,8 +561,7 @@ def main():
                 #else:
                  #   print("done")
 
-                #print(error2)
-                #print(180+57.2958*(np.arctan((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))),rob.angle)
+                
                 derivative2=(error2-error_prior2)
                 error_prior2=error2
                 u2=  (kp2*error2)   +   (kd2*derivative2) 
@@ -624,12 +618,13 @@ def main():
                 # Assigning Individual Wheel velocities
                 #vr=(2*u1+u2*L)/(2*R)
                 #vl=(2*u1-u2*L)/(2*R)
-                u2=0
+                # u2=0
+				u1=0
                 vr= (2*u1+u2*L)/(2*R)
                 vl= (2*u1-u2*L)/(2*R)
-                print("u1= ",u1)
-                print("vr= ",vr)
-                print("vl= ",vl)
+                # print("u1= ",u1)
+                # print("vr= ",vr)
+                # print("vl= ",vl)
 
                 #if(np.sign(vr) == 1):
                 #dirR= 0x00
@@ -657,8 +652,8 @@ def main():
                 # Assign the motor velocities to 0-256 range to send through 8bit UART
                 VrHex = int(Vr*255/ 350)
                 VlHex = int(Vl*255/ 350)
-                print("VrHex= ",VrHex)
-                print("VlHex= ",VlHex)
+                # print("VrHex= ",VrHex)
+                # print("VlHex= ",VlHex)
                 if (abs(error1) < 10 and abs(error2) <5): 
                     kick= 0x01
                 else:
