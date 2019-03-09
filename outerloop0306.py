@@ -9,7 +9,7 @@ from fractions import gcd
 import sys
 
 
-KL25=serial.Serial('COM4',2048000,timeout=1)#open serial port
+KL25=serial.Serial('COM6',256000,timeout=1)#open serial port
 # two Lists used for real time plottting of the left motor and right motor
 Rmotor= []
 Lmotor= []
@@ -49,14 +49,15 @@ def colorID(hue, sat, val):
     color = 'X' # Default case, 'X' will print an error for an unrecognized element
     if(val > 50):
         if (hue < 137 and hue >= 90):
+        #if (hue < 250 and hue >= 150):
             color = 'B' # Blue team circle
         elif (hue < 35 and hue > 25 and sat > 80):
             color = 'Y' # Yellow team circle
-        elif (hue >= 140 or (hue <= 8 and sat < 120) or (hue <= 4)): # Must address loop in hue
+        elif (hue >= 140 or (hue <= 8 and sat < 120)): # Must address loop in hue
             color = 'P' # Purple ID circle
         elif (hue < 90 and hue >= 43):
             color = 'G' # Green ID circle
-        elif ((hue <= 20 and hue >= 4 and sat > 40) or (hue <=35 and hue >20 and sat < 80)):
+        elif ((hue <= 20 and hue >= 3 and sat > 40) or (hue <=35 and hue >20 and sat < 80)):
             color = 'O' # Ball!
         #else:
             #print(hue,sat,val) # good for debugging unrecognized circles
@@ -152,7 +153,7 @@ def assignIDmarks(robot):
         #            furthestMark = [j, qark[1]]
 
         #else:
-           # print(robot.radius)
+            #print(robot.radius)
                 
     # * The below code was intended to shorten the list of circles in order to 
     # improve efficiency, however it had an error due to the index provided by
@@ -394,8 +395,12 @@ def main():
     flag =  0
     kd1=0.5
     kd2=kd1
-    VrMax = 300
+    VrMax = 800
     VlMax = VrMax 
+    temp1=0
+    temp2=0
+    test = 0
+    counter = 0
    
     cap = cv2.VideoCapture(cv2.CAP_DSHOW + 1) # 0 if your pc doesn't have a webcam, probably 1 if it does
     # https://stackoverflow.com/questions/52043671/opencv-capturing-imagem-with-black-side-bars
@@ -403,6 +408,8 @@ def main():
     # so we can scale up the resolution read from the camera
 
     # Scaling up from 640x480 to HD 1280x720
+    #cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    #cap.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
     #cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     #cap.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
 
@@ -433,7 +440,7 @@ def main():
         # d = 5 as that is the recommended nearest neighbour for real time
         # sigmaColor = 150 to produce large blending effect
         # sigmaSpace is limited by d, so I suspect it doesn't matter
-        blurred_img = cv2.bilateralFilter(frame,5,150,150) 
+        blurred_img = cv2.bilateralFilter(frame,8,150,150) 
 
         # HSV color space conversion
         hsv= cv2.cvtColor(blurred_img,cv2.COLOR_BGR2HSV)
@@ -459,7 +466,7 @@ def main():
         #  minDist: Specifies minimum distance between circles (the 4th input to the function)
         #  
         # from documentation: cv2.HoughCircles(image, method, dp, minDist[, circles[, param1[, param2[, minRadius[, maxRadius]]]]]) → circles
-        circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist = 5,param1=50,param2=20,minRadius=1,maxRadius=15)
+        circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist = 5,param1=25,param2=20,minRadius=1,maxRadius=15)
 
         cv2.waitKey(1) # cv2.waitKey() is required to display images- waits 1 millisecond here
 
@@ -485,22 +492,22 @@ def main():
                     angle(robot)         # Determine angle of robots seen
                     RoboID(robot)        # Give robots seen an ID
 
-                    # Draw the robot circles seen robot by robot
-                    # Draw a black circle on the centre of the robot
-                    cv2.circle(img,(robot.pos[0],robot.pos[1]),10,(0,0,0),3)
-                    if isinstance(robot.angle, type(None)) == 0:
-                        # Display the robot's angle
-                        cv2.putText(img, str(round(robot.angle,1)), (robot.pos[0]+ 100, robot.pos[1] + 130), 
-                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
-                        # Display the robot's position
-                        cv2.putText(img, str(robot.pos), (robot.pos[0]+ 100, robot.pos[1] + 100), 
-                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
-                        # Display the robot's ID
-                        cv2.putText(img, robot.ID, (robot.pos[0]+ 100, robot.pos[1] + 70), 
-                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
-                        # Display the robot's Team
-                        cv2.putText(img, robot.team, (robot.pos[0]+ 100, robot.pos[1] + 40), 
-                                    cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+                    ## Draw the robot circles seen robot by robot
+                    ## Draw a black circle on the centre of the robot
+                    #cv2.circle(img,(robot.pos[0],robot.pos[1]),10,(0,0,0),3)
+                    #if isinstance(robot.angle, type(None)) == 0:
+                    #    # Display the robot's angle
+                    #    cv2.putText(img, str(round(robot.angle,1)), (robot.pos[0]+ 100, robot.pos[1] + 130), 
+                    #                cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+                    #    # Display the robot's position
+                    #    cv2.putText(img, str(robot.pos), (robot.pos[0]+ 100, robot.pos[1] + 100), 
+                    #                cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+                    #    # Display the robot's ID
+                    #    cv2.putText(img, robot.ID, (robot.pos[0]+ 100, robot.pos[1] + 70), 
+                    #                cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+                    #    # Display the robot's Team
+                    #    cv2.putText(img, robot.team, (robot.pos[0]+ 100, robot.pos[1] + 40), 
+                    #                cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
                     for mark in robot.circles:
                         # Draw a black circle on every ID mark
                         cv2.circle(img,(mark[0],mark[1]),10,(0,0,0),3)  
@@ -511,13 +518,13 @@ def main():
             flag = 1 # don't print this again
 
         # Display drawn on frame and original frame
-        cv2.imshow('circles on stream',img)
+        #cv2.imshow('circles on stream',img)
         cv2.imshow('original stream',frame)
 
         if cv2.waitKey(1) & 0xFF == ord('\r'): # if enter is pressed, stop running
             break
 
-        test = 100
+        
 
         
         packet = bytearray()
@@ -535,84 +542,103 @@ def main():
         #print(data.decode('ISO-8859-1')) #Reading and Printing slows down the system incredibly, do not use for the demonstration
 
         for rob in roboList:
-            if (isinstance(roboIDmarks, type(None)) == 0) & (isinstance(roboList, type(None)) == 0):
-                if (rob.ID == '-no ID!-'):
-                    vr=0
-                    vl=0  
-
-
-				####### Angle Control #######
-                #approach_x = (320-rob.pos[0])
-                #approach_y = (240-rob.pos[1])
-                #common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
-                #approach_x = approach_x/common_divisor #Divide by common divisor
-                #approach_y = approach_y/common_divisor #Divide by common divisor
-                #error2= (180+57.2958*(np.arctan((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))))-rob.angle
-                #error2= (180+57.2958*(math.atan2((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))))-rob.angle
-                #error2= math.degrees((math.atan2(approach_y,approach_x)))#-rob.angle
-                error2=math.degrees((math.atan2(0-rob.pos[1],0-rob.pos[0])))-rob.angle
-                
-                #if np.sign(error2)==-1:
-                #   error2=error2
+            if (rob.ID != '-no ID!-') & (isinstance(roboList, type(None)) == 0):
+                #if(abs(abs(rob.angle)-180)>20 and counter>5):
+                 #   if (abs(rob.angle-test) >=50 and counter > 5):
+                  #      rob.angle=test#something is wrong with the angle measurement
+                    
                 #else:
-                #   error2=error2-360
+                   
+                   #if (abs(abs( rob.angle)-abs(test)) >=50 and counter>5 ):
+                    #    rob.angle=test#something is wrong with the angle measurement
+                #test=rob.angle
+               # print(rob.angle)
+                # Display the robot's angle
+                cv2.putText(img, str(round(rob.angle,1)), (rob.pos[0]+ 100, rob.pos[1] + 130), 
+                            cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+                # Display the robot's position
+                cv2.putText(img, str(rob.pos), (rob.pos[0]+ 100, rob.pos[1] + 100), 
+                            cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+                # Display the robot's ID
+                cv2.putText(img, rob.ID, (rob.pos[0]+ 100, rob.pos[1] + 70), 
+                            cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+                # Display the robot's Team
+                cv2.putText(img, rob.team, (rob.pos[0]+ 100, rob.pos[1] + 40), 
+                            cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
+
+                ####### Angle Control 
+                #error2=math.degrees((math.atan2(0-rob.pos[1],0-rob.pos[0])))-rob.angle
                 #regulate the angle to reduce ambiguity
-                if (abs(error2)<180):
-                    error2=error2
-                elif (np.sign(error2)==-1):
-                    error2=error2+360
-                elif (np.sign(error2)==1):
-                    error2=error-360
+                #if (abs(error2)<180):
+                 #   error2=error2
+                #elif (np.sign(error2)==-1):
+                 #   error2=error2+360
+                #elif (np.sign(error2)==1):
+                 #   error2=error-360
                 #else:
                  #   print("done")
 
-                #print(error2)
-                #print(180+57.2958*(np.arctan((ball.pos[1]-rob.pos[1])/(ball.pos[0]-rob.pos[0]))),rob.angle)
-                derivative2=(error2-error_prior2)
-                error_prior2=error2
-                u2=  (kp2*error2)   +   (kd2*derivative2) 
 
+                #derivative2=(error2-error_prior2) #Shouldn't this be divided by a dt?
+                #error_prior2=error2
+                #u2=  (kp2*error2)   +   (kd2*derivative2) 
+
+               
 				#Error In Position
                 ####### Position Control #######
-                error1 = ((100-rob.pos[0])**2+(100-rob.pos[1])**2)**0.5
-                derivative1=(error1-error_prior1)/dt
+                # when the ball does not get detected
+                if (isinstance(ball, type(None)) != 0):
+                    ball = ballClass(temp1,temp2)
+                
+                temp1=ball.pos[0]
+                temp2=ball.pos[1]
+                error1 = ((315-rob.pos[0])**2+(405-rob.pos[1])**2)**0.5
+                
+                derivative1=(error1-error_prior1)
                 error_prior1=error1
+                print("error1:",error1)
                 u1=  ( kp1*error1 )   +  ( kd1*derivative1 )
                 #print(error1)
+                #0 is to rotate forward & 1 is to rotate backward
+                if (error1>0):
+                    dirR=1
+                    dirL=1
+                elif (error1<0):
+                    dirR=0
+                    dirL=0
+                
+                    
 
                 # Assigning the direction of motors based on the wheel velocities sign
 
-                if (error2>=-15 and error2<=15):
-                    error2=error2
-                    dirR=1
-                    dirL=1
-                    packet.append(0xFF)
-                    packet.append(0x01)  #Robot ID
-                    packet.append(0x00) #VrHex
-                    packet.append(0x00)  #dirR
-                    packet.append(0x00) #VlHex
-                    packet.append(0x00)  #dirL
-                    packet.append(0x01)  #kick
-                    packet.append(0xFF)
-                    KL25.write(packet)
-               
-                   # print("ooooooooooooooooooo")
-                  #  break
-                else:	
-                    if (np.sign(error2)==-1):
-                        dirR=1
-                        dirL=0
-                    elif (np.sign(error2)==1):
-                        dirR=0
-                        dirL=1
+                #if (error2>=-15 and error2<=15):
+                    #error2=error2
+                    #dirR=1
+                    #dirL=1
+                    #packet.append(0xFF) #Start Bit
+                    #packet.append(0x01) #ID Bit
+                    #packet.append(0x00) #VrHex
+                    #packet.append(0x00)  #dirR
+                    #packet.append(0x0) #VlHex
+                    #packet.append(0x00)  #dirL
+                    #packet.append(0x00) #Kick Command 
+                    #packet.append(0xFF) #Stop Bit
+                    #break
+                #else:	
+                    #if np.sign(error2)==-1:
+                        #dirR=1
+                        #dirL=0
+                    #elif np.sign(error2)==1:
+                        #dirR=0
+                        #dirL=1
                 
              
-                 #Setting limits to the inputs 
+                ## Setting limits to the inputs 
                 if(u1 > umax):
                    u1=umax
                 if(u1 < -umax):
                    u1 = -umax
-
+                u2=0
                 if(u2 > u2max):
                     u2=u2max
                 if(u2 < -u2max):
@@ -624,12 +650,12 @@ def main():
                 # Assigning Individual Wheel velocities
                 #vr=(2*u1+u2*L)/(2*R)
                 #vl=(2*u1-u2*L)/(2*R)
+                #u1=0
                 u2=0
-                vr= (2*u1+u2*L)/(2*R)
-                vl= (2*u1-u2*L)/(2*R)
-                print("u1= ",u1)
-                print("vr= ",vr)
-                print("vl= ",vl)
+                #vr= (2*u1+u2*L)/(2*R) #These do not appear to be correct
+                #vl= (2*u1-u2*L)/(2*R)
+                vr=u1+u2
+                vl=u1-u2
 
                 #if(np.sign(vr) == 1):
                 #dirR= 0x00
@@ -655,45 +681,37 @@ def main():
                 #print(Vr)
                 #print(Vl)
                 # Assign the motor velocities to 0-256 range to send through 8bit UART
-                VrHex = int(Vr*255/ 350)
-                VlHex = int(Vl*255/ 350)
-                print("VrHex= ",VrHex)
-                print("VlHex= ",VlHex)
+                VrHex = int(Vr*255/ VrMax)+0x20
+                VlHex = int(Vl*255/ VlMax)+0x20
+
                 if (abs(error1) < 10 and abs(error2) <5): 
                     kick= 0x01
                 else:
                     kick = 0
-                    
-                #if (error2>=-15 and error2<=15):
-                 #   error2=error2
-                  #  dirR=1
-                   # dirL=1
-                    #packet.append(0xFF)
-                    #packet.append(0x01)  #Robot ID
-                    #packet.append(0) #VrHex
-                    #packet.append(0)  #dirR
-                    #packet.append(0) #VlHex
-                    #packet.append(0)  #dirL
-                    #packet.append(kick)  #kick
-                    #packet.append(0xFF)
-                    #KL25.write(packet)
+                if (error1<50):
+                    VrHex=0x0
+                    VlHex=0x0
                
-#print("ooooooooooooooooooo")
-                   # break
-                
-                packet.append(0xFF)
-                packet.append(0x01)  #Robot ID
-                packet.append(VrHex) #VrHex
-                packet.append(dirR)  #dirR
-                packet.append(VlHex) #VlHex
-                packet.append(dirL)  #dirL
-                packet.append(kick)  #kick
-                packet.append(0xFF)
-                KL25.write(packet)
+                print("VlHex:",VlHex)
+                print("VrHex:",VrHex)
+                counter = counter + 1
+                #packet.append(0xFF)
+                #packet.append(0x01)  #Robot ID
+                #packet.append(VrHex) #VrHex
+                #packet.append(dirR)  #dirR
+                #packet.append(VlHex) #VlHex
+                #packet.append(dirL)  #dirL
+                #packet.append(kick)  #kick
+                #packet.append(0xFF)
+                #KL25.write(packet)
                 #data = KL25.read(4)
                 #print(data.decode('ISO-8859-1'))
                 
-                    
+
+        cv2.imshow('circles on stream',img)
+
+
     cv2.destroyAllWindows()
+ 
 if __name__== "__main__":
     main()
