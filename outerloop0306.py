@@ -567,6 +567,13 @@ def main():
                             cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
 
                 ####### Angle Control 
+                # Bounds the error between -180 and 180 degrees
+                # If the sign(error2) is positive the robot rotates clockwise and if sign(error2) is negative the robot rotates counter clockwise
+                #if(abs(error2) < 180 and np.sign(error2) == 1):
+                #   error2 = error2 - 180
+                #elif(abs(error2) < 180 and np.sign(error2) == -1):
+                #   error2 = error2 + 180 
+                
                 #error2=math.degrees((math.atan2(0-rob.pos[1],0-rob.pos[0])))-rob.angle
                 #regulate the angle to reduce ambiguity
                 #if (abs(error2)<180):
@@ -574,7 +581,7 @@ def main():
                 #elif (np.sign(error2)==-1):
                  #   error2=error2+360
                 #elif (np.sign(error2)==1):
-                 #   error2=error-360
+                 #   error2=error2-360
                 #else:
                  #   print("done")
 
@@ -592,6 +599,8 @@ def main():
                 
                 temp1=ball.pos[0]
                 temp2=ball.pos[1]
+                #Should error1 be this instead?
+                #error1 = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5 * (math.cos(math.atan2(ball.pos[1]-rob.pos[1] / ball.pos[0]-rob.pos[0]) - rob.angle))
                 error1 = ((315-rob.pos[0])**2+(405-rob.pos[1])**2)**0.5
                 
                 derivative1=(error1-error_prior1)
