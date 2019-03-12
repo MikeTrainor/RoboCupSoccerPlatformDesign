@@ -511,6 +511,11 @@ def mainLoop():
 
     global error1,error_prior1,error2,error_prior2,dt,derivative1,L,R,dirR,dirL,umax,u2max,kp1
     global kp2,flag,kd1,kd2,VrMax,VlMax,temp1,temp2,test,counter
+
+    #Mikes Global Variables
+    global points
+    global tangents
+
    
     #cap = cv2.VideoCapture(cv2.CAP_DSHOW + 0) # 0 if your pc doesn't have a webcam, probably 1 if it does
     # https://stackoverflow.com/questions/52043671/opencv-capturing-imagem-with-black-side-bars
@@ -645,7 +650,28 @@ def mainLoop():
     # when the ball does not get detected
     if (isinstance(ball, type(None)) != 0):
         ball = ballClass(temp1,temp2)  
+    
+    #This if statement is simply for initialization, there has to be a better way of doing this
+    if(counter == 0):
+        #Mike's added value stuff Initialization
+        points = []
+        tangents = []
+        resolution = 0.2
+        points.append([rob.pos[0],rob.pos[1]]) #Robot Position
+        points.append([ball.pos[0],ball.pos[1]]) #Ball Position
+        points.append([600,220]) #Net Position
 
+        #Finding the angle at which the robot approaches
+        approach_x = (points[2][0] - points[1][0])
+        approach_y = (points[2][1] - points[1][1])
+        common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
+        approach_x = approach_x/common_divisor #Divide by common divisor
+        approach_y = approach_y/common_divisor #Divide by common divisor
+
+        #Tangents for alligning robot with ball and net
+        tangents.append([math.tan(45*np.pi/180),1]) #Robot position, Slope converted from radians, this value is whatever angle the robot is currently facing
+        tangents.append([approach_x, approach_y]) #Ball position
+        tangents.append([approach_x, approach_y]) #Net position
         
     packet = bytearray()                    # ** Should this be within the for loop below?
     #packet.append(0xff)
@@ -703,11 +729,6 @@ def mainLoop():
                 common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
                 approach_x = approach_x/common_divisor #Divide by common divisor
                 approach_y = approach_y/common_divisor #Divide by common divisor
-
-                #Tangents for alligning robot with ball and net
-                tangents.append([math.tan(45*np.pi/180),1]) #Robot position, Slope converted from radians, this value is whatever angle the robot is currently facing
-                tangents.append([approach_x, approach_y]) #Ball position
-                tangents.append([approach_x, approach_y]) #Net position
 
                 # Interpolate with different tangent lengths, but equal direction.
                 scale = 0.1 #Tunable Parameter, the closer to 0 the tighter the spline
