@@ -478,7 +478,7 @@ error2=0
 error_prior2=0
 
 #Motor Speed Parameters
-VrMax = 300
+VrMax = 800
 VlMax = VrMax 
 VrMin = 0x15
 VlMin = VrMin
