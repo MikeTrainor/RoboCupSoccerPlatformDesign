@@ -18,7 +18,7 @@ import pygame.math as vmath
 
 #import GUI_attempt
 
-#KL25=serial.Serial('COM6',256000,timeout=1)#open serial port
+KL25=serial.Serial('COM7',256000,timeout=1)#open serial port
 # two Lists used for real time plottting of the left motor and right motor
 Rmotor= []
 Lmotor= []
@@ -46,7 +46,7 @@ roboIDmarks = []    # holds all potential robot ID marks seen ('G' or 'P')
 ball = None         # holds ball position in ballClass type object
 IDdRobots = []      # potentially used for previous state- probably updated every loop
 
-param1val = 75
+param1val = 150
 param2val = 15
 valueMin = 125
 
@@ -497,20 +497,23 @@ dirR=0
 dirL=0
 umax=575            #Max input for position control
 u2max= 220
-kp1= 2.65
-kp2= 1.2
+kp1= 1.65
+kp2= 0.5
 flag =  0
-kd1=1.5
-kd2=1.5
+kd1=0.2
+kd2=1
 temp1=0
 temp2=0
 test = 0
 counter = 0
 points = []
 tangents = []
+samples_prev = []
+next_point_x = 0
+next_point_y = 0
 
    
-cap = cv2.VideoCapture(cv2.CAP_DSHOW + 0) # 0 if your pc doesn't have a webcam, probably 1 if it does
+cap = cv2.VideoCapture(cv2.CAP_DSHOW + 1) # 0 if your pc doesn't have a webcam, probably 1 if it does
 def mainLoop():
     print("new loop\n\r")
     # Declaring global variables so they can be cleared every loop
@@ -522,7 +525,8 @@ def mainLoop():
     #Mikes Global Variables
     global points
     global tangents
-
+    global samples_prev
+    global next_point_x, next_point_y
    
     #cap = cv2.VideoCapture(cv2.CAP_DSHOW + 0) # 0 if your pc doesn't have a webcam, probably 1 if it does
     # https://stackoverflow.com/questions/52043671/opencv-capturing-imagem-with-black-side-bars
@@ -717,13 +721,13 @@ def mainLoop():
                 stoprobot(robotsID)
                 continue
             else:
-                if(abs(abs(rob.angle)-180)>20 and counter>5):
-                    if (abs(rob.angle-test) >=200 and counter > 5):
-                        rob.angle=test#something is wrong with the angle measurement
+                #if(abs(abs(rob.angle)-180)>20 and counter>5):
+                #    if (abs(rob.angle-test) >=200 and counter > 5):
+                #        rob.angle=test#something is wrong with the angle measurement
                     
-                else:
-                    if (abs(abs( rob.angle)-abs(test)) >=50 and counter>5 ):
-                        rob.angle=test#something is wrong with the angle measurement
+                #else:
+                #    if (abs(abs( rob.angle)-abs(test)) >=50 and counter>5 ):
+                #        rob.angle=test#something is wrong with the angle measurement
                 test=rob.angle
                 #print("rob.angle",rob.angle)
                 # Display the robot's angle
@@ -739,7 +743,7 @@ def mainLoop():
                 cv2.putText(img, rob.team, (rob.pos[0]+ 100, rob.pos[1] + 40), 
                             cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
 
-                #Mike's Added Value Stuff
+                #Mike's Added Value 
                 points.append([rob.pos[0],rob.pos[1]]) #Robot Position
                 points.append([ball.pos[0],ball.pos[1]]) #Ball Position
                 points.append([600,220]) #Net Position
@@ -747,9 +751,9 @@ def mainLoop():
                 #Finding the angle at which the robot approaches
                 approach_x = (points[2][0] - points[1][0])
                 approach_y = (points[2][1] - points[1][1])
-                common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
-                approach_x = approach_x/common_divisor #Divide by common divisor
-                approach_y = approach_y/common_divisor #Divide by common divisor
+                #common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
+                #approach_x = approach_x/common_divisor #Divide by common divisor
+                #approach_y = approach_y/common_divisor #Divide by common divisor
 
                 #Tangents for alligning robot with ball and net
                 tangents.append([math.tan(45*np.pi/180),1]) #Robot position, Slope converted from radians, this value is whatever angle the robot is currently facing
@@ -760,35 +764,46 @@ def mainLoop():
                 tangents = np.asarray(tangents)
 
                 #Finding the angle at which the robot approaches
-                approach_x = (points[2][0] - points[1][0])
-                approach_y = (points[2][1] - points[1][1])
-                common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
-                approach_x = approach_x/common_divisor #Divide by common divisor
-                approach_y = approach_y/common_divisor #Divide by common divisor
+                #approach_x = (points[2][0] - points[1][0])
+                #approach_y = (points[2][1] - points[1][1])
+                rob_approach_x = (next_point_x - rob.pos[0]) #Robot's approach to next point x
+                rob_approach_y = (next_point_y - rob.pos[1]) #Robot's approach to next point y
+                print("next_point_x", next_point_x)
+                print("next_point_y", next_point_y)
+                #common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
+                #approach_x = approach_x/common_divisor #Divide by common divisor
+                #approach_y = approach_y/common_divisor #Divide by common divisor
 
                 # Interpolate with different tangent lengths, but equal direction.
-                scale = 0.01 #Tunable Parameter, the closer to 0 the tighter the spline
+                scale = 0.01 #Tunable Parameter, the closer to 0 the tighter the spline, 0.01 is a good in between
                 tangents_new = np.dot(tangents, scale*np.eye(2))
                 samples_new = np.float32(sampleCubicSplinesWithDerivative(points, tangents_new, resolution))
 
                 #Find the slope to the next point
                 next_point_x =  np.float32(samples_new[round(len(samples_new)/10)][0] - points[0][0]) #Change in x between the robot and next point
                 next_point_y =  np.float32(samples_new[round(len(samples_new)/10)][1] - points[0][1]) #Change in y between the robot and next point
-                tangents[0][0] = math.atan2(next_point_y,next_point_x) #This value is the angle in radians that the robot must face for its path
+                tangents[0][0] = math.atan2(next_point_y - rob.pos[1] ,next_point_x - rob.pos[0]) - rob.angle #This value is the angle in radians that the robot must face for its path
+                print("tangents[0][0]", math.degrees(tangents[0][0]))
                 tangents[0][1] = 1
-                tangents[1][0] = approach_x #x slope
-                tangents[1][1] = approach_y #y slope
-                tangents[2][0] = approach_x #x slope
-                tangents[2][1] = approach_y #y slope
-
+                print("tangents[0][1]", math.degrees(tangents[0][1]))
+                tangents[1][0] = approach_x #x slope for the spline
+                print("tangents[1][0]", math.degrees(tangents[1][0]))
+                tangents[1][1] = approach_y #y slope for the spline
+                print("tangents[1][1]", math.degrees(tangents[1][1]))
+                tangents[2][0] = approach_x #x slope for the spline
+                print("tangents[2][0]", math.degrees(tangents[2][0]))
+                tangents[2][1] = approach_y #y slope for the spline
+                print("tangents[2][1]", math.degrees(tangents[2][1]))
+                approach_x = (next_point_x)
+                approach_y = (next_point_y)
                 points = np.asarray(points)
                 tangents = np.asarray(tangents)
                 trajectory = math.degrees(tangents[0][0]) #Angle in degrees
 
                 #Printing Mike's Stuff
-                print(samples_new[round(len(samples_new)/10) + 1][0]) #X position with resolution of 10, if this is not good enough divide into smaller pieces perhaps
-                print(samples_new[round(len(samples_new)/10) + 1][1]) #X position with resolution of 10, if this is not good enough divide into smaller pieces perhaps
-                print(trajectory) #Angle output in degrees
+                print("X", samples_new[round(len(samples_new)/10)][0]) #X position with resolution of 10, if this is not good enough divide into smaller pieces perhaps
+                print("Y", samples_new[round(len(samples_new)/10)][1]) #y position with resolution of 10, if this is not good enough divide into smaller pieces perhaps
+                print("trajectory", trajectory) #Angle output in degrees
 
                 #Display splines on the live feed & plot
                 #path_plot = plt.scatter(samples3[:,0], samples3[:,1], marker='o', label='samples3')
@@ -806,34 +821,41 @@ def mainLoop():
 
                 #Mike's Added Value Deciding which error to use Based on Robot Position and Angle
                 pos_error = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5 #The absolute error between robot and ball
-                angle_error = math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0])))-rob.angle #Angle error between robot and ball
+                angle_error = math.degrees(math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0])) - rob.angle #Angle error between robot and ball
+                if (abs(angle_error)<180):
+                        angle_error=angle_error
+                elif (np.sign(angle_error)==-1):
+                        angle_error=angle_error+360
+                elif (np.sign(angle_error)==1):
+                        angle_error=angle_error-360
+                else:
+                        print("done")
 
-                if(abs(pos_error) <= 10 and abs(angle_error) <=5): #if the robot is close to the ball and is lined up
+                print("angle_error",angle_error)
+                if(abs(pos_error) <= 30 and abs(angle_error) <=5): #if the robot is close to the ball and is lined up
                     error2 = math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0])))-rob.angle
                     error1 = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5
-                    kick = 1 #kick the ball
                 else:
-                    error2=math.degrees((math.atan2(samples_new[round(len(samples_new)/10) + 1][1]-rob.pos[1], samples_new[round(len(samples_new)/10) + 1][0]-rob.pos[0])))-rob.angle #error2 for Mike's Added Value
+                    error2=math.degrees((math.atan2(samples_new[round(len(samples_new)/10)][1]-rob.pos[1], samples_new[round(len(samples_new)/10)][0]-rob.pos[0])))-rob.angle #error2 for Mike's Added Value
                     error1 = ((next_point_x-rob.pos[0])**2+(next_point_y-rob.pos[1])**2)**0.5 #error1 for Mike's Added value
 
                 #error2=math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0])))-rob.angle
                 #error2=math.degrees((math.atan2(samples_new[round(len(samples_new)/10) + 1][1]-rob.pos[1], samples_new[round(len(samples_new)/10) + 1][0]-rob.pos[0])))-rob.angle #error2 for Mike's Added Value
                 
                 #Mike's Added Value Part 2 START
-                color = 255
-                cv2.line(img, (ball.pos[0],ball.pos[1]), (points[3][0],points[3][1]), color, 5)
+                #color = 255
+                ##cv2.line(img, (ball.pos[0],ball.pos[1]), (points[3][0],points[3][1]), color, 5)
 
-                nx, ny = (500,1) #500 colomns by 1 rows vector]
-                x = np.linspace(ball.pos[0],points[3][0],nx) #x vector
-                y = np.linspace(ball.pos[1],points[3][1],nx) #y vector, start and end reversed
+                #nx, ny = (500,1) #500 colomns by 1 rows vector]
+                #x = np.linspace(ball.pos[0],600,nx) #x vector
+                #y = np.linspace(ball.pos[1],220,nx) #y vector, start and end reversed
 
-                xpoint = x[round(len(x)*8/10)] #Going to rounded 8/10ths the way through the x vector
-                ypoint = y[round(len(y)*8/10)] #Going to rounded 8/10ths the way through the y vector
-                error1 = ((xpoint-rob.pos[0])**2+(ypoint-rob.pos[1])**2)**0.5 #error1 for Mike's Added value part 2
-                error2 = math.degrees((math.atan2(ypoint-rob.pos[1],xpoint-rob.pos[0])))-rob.angle
+                #xpoint = x[round(len(x)*8/10)] #Going to rounded 8/10ths the way through the x vector
+                #ypoint = y[round(len(y)*8/10)] #Going to rounded 8/10ths the way through the y vector
+                #error1 = ((xpoint-rob.pos[0])**2+(ypoint-rob.pos[1])**2)**0.5 #error1 for Mike's Added value part 2
+                #error2 = math.degrees((math.atan2(ypoint-rob.pos[1],xpoint-rob.pos[0])))-rob.angle
                 #print(xpoint)
                 #print(ypoint)
-
                 #Mike's Added Value Part 2 END 
 
                 #regulate the angle to reduce ambiguity
@@ -866,10 +888,10 @@ def mainLoop():
 
 
                 # Assigning the direction of motors based on the wheel velocities sign
-                if (error2>=-15 and error2<=15):
+                if (error2>=-20 and error2<=20):
                     error2=error2
-                    dirR=0
-                    dirL=0
+                    dirR=1
+                    dirL=1
                 else:	
                     if np.sign(error2)==-1:
                         dirR=0
@@ -904,8 +926,8 @@ def mainLoop():
                 VrHex = int(Vr*255/ VrMax)+0x20
                 VlHex = int(Vl*255/ VlMax)+0x20
 
-                if (abs(error1) < 10 and abs(error2) <5): 
-                    kick= 0x01
+                if (abs(error1) < 60 and abs(error2) <5): 
+                    kick= 0x00
                 else:
                     kick = 0
                 if (error1<50):
@@ -915,18 +937,19 @@ def mainLoop():
                 print("VlHex:",VlHex)
                 print("VrHex:",VrHex)
                 counter = counter + 1
-                #packet.append(0xFF)
-                #packet.append(0x01)  #Robot ID
-                #packet.append(VrHex) #VrHex
-                #packet.append(dirR)  #dirR
-                #packet.append(VlHex) #VlHex
-                #packet.append(dirL)  #dirL
-                #packet.append(kick)  #kick
-                #packet.append(0xFF)
-                #KL25.write(packet)
+                packet.append(0xFF)
+                packet.append(0x01)  #Robot ID
+                packet.append(VrHex) #VrHex
+                packet.append(dirL)  #dirR
+                packet.append(VlHex) #VlHex
+                packet.append(dirR)  #dirL
+                packet.append(kick)  #kick
+                packet.append(0xFF)
+                KL25.write(packet)
                 #data = KL25.read(4)
                 #print(data.decode('ISO-8859-1'))
-                
+                points = [] #Reset points
+                tangents = []#Reset tangents
 
     cv2.imshow('circles on stream',img)
 
