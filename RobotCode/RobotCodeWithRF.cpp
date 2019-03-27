@@ -51,7 +51,7 @@ PwmOut PWM_motor1(PTE20); //PWM Motor1
 PwmOut PWM_motor2(PTE22); //PWM Motor2
 
 //Kick Output
-DigitalOut kick(PTB10); //Kick command
+DigitalOut kick(PTB11); //Kick command
 //Encoder
 QEI motor1(PTD4, PTA12, NC, 16, QEI::X4_ENCODING); //QEI for motor 1
 QEI motor2(PTA4, PTA5, NC, 16, QEI::X4_ENCODING); //QEI for motor 2
