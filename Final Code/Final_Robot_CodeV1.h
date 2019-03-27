@@ -209,7 +209,7 @@ void PID1(void const *argument){
         
         //dir_motor1 = 1;
         pulses_motor1 =  abs(motor2.getPulses());
-        des_vel = 100;
+        //des_vel = 100;
         mes_vel = (60*pulses_motor1) / (dt* 700 * 4); //Calculate the measured speed
     
         if(r > ramp_end){
@@ -267,7 +267,7 @@ void PID2(void const *argument){
         
         //dir_motor2 = 1;
         pulses_motor2 = abs(motor1.getPulses()); //Get number of pulses from motor2
-        des_vel2 = 150;
+        //des_vel2 = 150;
         mes_vel2 = (60*pulses_motor2) / (700 * dt * 4); // Motor Speed in RPM at the wheel
     
         //Ramping
