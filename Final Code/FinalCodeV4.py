@@ -748,7 +748,7 @@ def mainLoop():
                 points.append([ball.pos[0],ball.pos[1]]) #Ball Position
                 points.append([600,220]) #Net Position
 
-                #Finding the angle at which the robot approaches
+                #Finding the angle at which the robot approaches FOR THE SPLINE
                 approach_x = (points[2][0] - points[1][0])
                 approach_y = (points[2][1] - points[1][1])
                 #common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
@@ -763,39 +763,32 @@ def mainLoop():
                 points = np.asarray(points)
                 tangents = np.asarray(tangents)
 
-                #Finding the angle at which the robot approaches
-                #approach_x = (points[2][0] - points[1][0])
-                #approach_y = (points[2][1] - points[1][1])
-                rob_approach_x = (next_point_x - rob.pos[0]) #Robot's approach to next point x
-                rob_approach_y = (next_point_y - rob.pos[1]) #Robot's approach to next point y
-                print("next_point_x", next_point_x)
-                print("next_point_y", next_point_y)
-                #common_divisor = abs(gcd(approach_x,approach_y)) #Absolute value of the greatest common divisor
-                #approach_x = approach_x/common_divisor #Divide by common divisor
-                #approach_y = approach_y/common_divisor #Divide by common divisor
-
                 # Interpolate with different tangent lengths, but equal direction.
                 scale = 0.01 #Tunable Parameter, the closer to 0 the tighter the spline, 0.01 is a good in between
                 tangents_new = np.dot(tangents, scale*np.eye(2))
                 samples_new = np.float32(sampleCubicSplinesWithDerivative(points, tangents_new, resolution))
 
-                #Find the slope to the next point
-                next_point_x =  np.float32(samples_new[round(len(samples_new)/10)][0] - points[0][0]) #Change in x between the robot and next point
-                next_point_y =  np.float32(samples_new[round(len(samples_new)/10)][1] - points[0][1]) #Change in y between the robot and next point
-                tangents[0][0] = math.atan2(next_point_y - rob.pos[1] ,next_point_x - rob.pos[0]) - rob.angle #This value is the angle in radians that the robot must face for its path
-                print("tangents[0][0]", math.degrees(tangents[0][0]))
+                #Find the slope to the next point for the robot
+                next_point_x =  np.float32(samples_new[round(len(samples_new)/5)][0] - points[0][0]) #Change in x between the robot and next point
+                next_point_y =  np.float32(samples_new[round(len(samples_new)/5)][1] - points[0][1]) #Change in y between the robot and next point
+
+                print("next_point_x", next_point_x)
+                print("next_point_y", next_point_y)
+
+                tangents[0][0] = math.atan2(next_point_y, next_point_x) - rob.angle #This value is the angle in radians that the robot must face for its path
+                #print("tangents[0][0]", math.degrees(tangents[0][0]))
                 tangents[0][1] = 1
-                print("tangents[0][1]", math.degrees(tangents[0][1]))
+                #print("tangents[0][1]", math.degrees(tangents[0][1]))
                 tangents[1][0] = approach_x #x slope for the spline
-                print("tangents[1][0]", math.degrees(tangents[1][0]))
+                #print("tangents[1][0]", math.degrees(tangents[1][0]))
                 tangents[1][1] = approach_y #y slope for the spline
-                print("tangents[1][1]", math.degrees(tangents[1][1]))
+                #print("tangents[1][1]", math.degrees(tangents[1][1]))
                 tangents[2][0] = approach_x #x slope for the spline
-                print("tangents[2][0]", math.degrees(tangents[2][0]))
+                #print("tangents[2][0]", math.degrees(tangents[2][0]))
                 tangents[2][1] = approach_y #y slope for the spline
-                print("tangents[2][1]", math.degrees(tangents[2][1]))
-                approach_x = (next_point_x)
-                approach_y = (next_point_y)
+                #print("tangents[2][1]", math.degrees(tangents[2][1]))
+                #approach_x = (next_point_x)
+                #approach_y = (next_point_y)
                 points = np.asarray(points)
                 tangents = np.asarray(tangents)
                 trajectory = math.degrees(tangents[0][0]) #Angle in degrees
@@ -837,11 +830,11 @@ def mainLoop():
                     error1 = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5
                 else:
                     error2=math.degrees((math.atan2(samples_new[round(len(samples_new)/10)][1]-rob.pos[1], samples_new[round(len(samples_new)/10)][0]-rob.pos[0])))-rob.angle #error2 for Mike's Added Value
-                    error1 = ((next_point_x-rob.pos[0])**2+(next_point_y-rob.pos[1])**2)**0.5 #error1 for Mike's Added value
+                    error1 = ((next_point_x)**2+(next_point_y)**2)**0.5 #error1 for Mike's Added value
 
                 #error2=math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0])))-rob.angle
                 #error2=math.degrees((math.atan2(samples_new[round(len(samples_new)/10) + 1][1]-rob.pos[1], samples_new[round(len(samples_new)/10) + 1][0]-rob.pos[0])))-rob.angle #error2 for Mike's Added Value
-                
+                print("Error 2", error2)
                 #Mike's Added Value Part 2 START
                 #color = 255
                 ##cv2.line(img, (ball.pos[0],ball.pos[1]), (points[3][0],points[3][1]), color, 5)
