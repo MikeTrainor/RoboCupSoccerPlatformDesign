@@ -15,7 +15,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QObject, QThread, pyqtSignal, QSize, Qt
 #import GUI_attempt
 
-KL25=serial.Serial('COM6',256000,timeout=1)#open serial port
+KL25=serial.Serial('COM7',256000,timeout=1)#open serial port
 # two Lists used for real time plottting of the left motor and right motor
 Rmotor= []
 Lmotor= []
@@ -412,13 +412,14 @@ kp2=kp1
 flag =  0
 kd1=0.5
 kd2=kd1
-VrMax = 300
+VrMax = 1000
 VlMax = VrMax 
 temp1=0
 temp2=0
 test = 0
 counter = 0
 temp_u1=0
+temp_u2=0
 
 
 
@@ -431,7 +432,7 @@ temp_u1=0
 Fx = np.matrix([[1,dt], [0,1]])#A Matrix (state transfer function)(x direction) 
 Bx=np.matrix([[dt**2/2], [dt]]) #B Matrix (control function)(x direction)
 Xx=np.matrix([[0],[0]])#initial state(belief values) (doesn't matter what it is.)(x direction)
-	
+#print("Xx belief",Xx)
 Fy = np.matrix([[1,dt], [0,1]])#A Matrix (state transfer function)(y direction) 
 By=np.matrix([[dt**2/2], [dt]]) #B Matrix (control function)(y direction)
 Xy=np.matrix([[0],[0]])#initial state(belief values) (doesn't matter what it is.)(y direction)
@@ -494,8 +495,8 @@ def mainLoop():
     global diff,diff2
     global u1,temp_u1,temp_u2,u2
     global Fx,Bx,Xx,Fy,By,Xy,mu,sigma,noisex,Px,Qx,Hx,Rx,Py,Qy,Hy,Ry,noisey,noise
-	global F_angle,B_angle,X_angle,P_angle,Q_angle,H_angle,R_angle
-	
+    global F_angle,B_angle,X_angle,P_angle,Q_angle,H_angle,R_angle
+
     #cap = cv2.VideoCapture(cv2.CAP_DSHOW + 0) # 0 if your pc doesn't have a webcam, probably 1 if it does
     # https://stackoverflow.com/questions/52043671/opencv-capturing-imagem-with-black-side-bars
     # MSMF doesn't like being scaled up apparently, so switch from it (default) to DirectShow
@@ -506,7 +507,6 @@ def mainLoop():
     #cap.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
     #cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     #cap.set(cv2.CAP_PROP_FRAME_HEIGHT,720)
-    
 
 
     #while(True):
@@ -641,17 +641,19 @@ def mainLoop():
     #print(data.decode('ISO-8859-1')) #Reading and Printing slows down the system incredibly, do not use for the demonstration
 
     for rob in roboList:
-        if (rob.ID != '-no ID!-') & (isinstance(roboList, type(None)) == 0):
-            if(abs(abs(rob.angle)-180)>20 and counter>5):
-                   if (abs(rob.angle-test) >=200 and counter > 5):
-                      rob.angle=test#something is wrong with the angle measurement
+        #if (rob.ID != '-no ID!-') & (isinstance(roboList, type(None)) == 0):
+        #    if(abs(abs(rob.angle)-180)>20 and counter>5):
+        #           if (abs(rob.angle-test) >=200 and counter > 5):
+        #              rob.angle=test#something is wrong with the angle measurement
                     
-            else:
+        #    else:
                    
-                if (abs(abs( rob.angle)-abs(test)) >=50 and counter>5 ):
-                    rob.angle=test#something is wrong with the angle measurement
+        #        if (abs(abs( rob.angle)-abs(test)) >=50 and counter>5 ):
+        #            rob.angle=test#something is wrong with the angle measurement
             test=rob.angle
-            #print("rob.angle",rob.angle)
+            print("rob.angle",rob.angle)
+          
+            
             # Display the robot's angle
             cv2.putText(img, str(round(rob.angle,1)), (rob.pos[0]+ 100, rob.pos[1] + 130), 
                         cv2.FONT_HERSHEY_DUPLEX, 1, (255,255,255), 3)
@@ -668,10 +670,9 @@ def mainLoop():
             ####### Angle Control 
             if rob.angle == 999:
                 rob.angle=test
-            # error2=math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0])))-rob.angle
-            error2=math.degrees((math.atan2(ball.pos[1]-Xy,ball.pos[0]-Xx)))-X_angle
-			
-			
+            #error2=math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0])))-rob.angle
+            error2=math.degrees((math.atan2(ball.pos[1]-int(Xy[0][0]),ball.pos[0]-int(Xx[0][0]))))-X_angle[0]
+            #error2=math.degrees((math.atan2(ball.pos[1]-int(Xy[0][0]),ball.pos[0]-int(Xx[0][0]))))-rob.angle
             #regulate the angle to reduce ambiguity
             if (abs(error2)<180):
                    error2=error2
@@ -686,11 +687,22 @@ def mainLoop():
             derivative2=(error2-error_prior2) #Shouldn't this be divided by a dt?
             error_prior2=error2
             u2=  (kp2*error2)   +   (kd2*derivative2) 
-            # print("u2",u2)
-			diff2=(u2-temp_u2)/dt
+            print("u2",u2)
+            diff2=(u2-temp_u2)/dt
             temp_u2=u2
-
-			
+            u_angle=diff2/dt
+            print("X_angle",X_angle)
+            #if X_angle[0]>180:
+            #    X_angle[0] =X_angle[0]-360
+            #else:
+            #    X_angle=X_angle
+            Z_angle=rob.angle+noise#i'm not sure if this is right. It should be directly from the measurement
+            X_angle_bel=np.dot(F_angle,X_angle)+np.dot(B_angle,u_angle)#predicted
+            #update of the covariance matrix for predicted value
+            P_angle_bel=np.add(multi_dot([F_angle,P_angle,F_angle.transpose()]),Q_angle)
+            K_angle=np.dot(P_angle_bel,H_angle.transpose())/(multi_dot([H_angle,P_angle_bel,H_angle.transpose()])+R_angle);# calculating Kalman gain
+            X_angle=np.add(X_angle_bel,K_angle.dot(np.subtract(Z_angle,H_angle.dot(X_angle_bel))))#belief which is a combination of estimation and measurement
+            P_angle=multi_dot([np.subtract(np.identity(2),K_angle.dot(H_angle)), P_angle_bel])#update the covariance matrix
 			#Error In Position
             ####### Position Control #######
 
@@ -698,10 +710,10 @@ def mainLoop():
             temp2=ball.pos[1]
             #error1 = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5 * (math.cos(math.atan2(ball.pos[1]-rob.pos[1] / ball.pos[0]-rob.pos[0]) - rob.angle))
             #error1 = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5
-            error1 = ((ball.pos[0]-Xx)**2+(ball.pos[1]-Xy)**2)**0.5
+            error1 = ((ball.pos[0]-int(Xx[0][0]))**2+(ball.pos[1]-int(Xy[0][0]))**2)**0.5
             derivative1=(error1-error_prior1)
             error_prior1=error1
-            print("error1:",error1)
+            #print("error1:",error1)
             u1=  ( kp1*error1 )   +  ( kd1*derivative1 )
             diff=(u1-temp_u1)/dt
             temp_u1=u1
@@ -710,12 +722,14 @@ def mainLoop():
             uy=u_accel*math.sin((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0])))
   
             print("Xx belief",Xx)   
+            print("rob.pos[0]",rob.pos[0])
+            
             Zx=rob.pos[0]+noisex#i'm not sure if this is right should be directly from the measurement
             X_x=np.dot(Fx,Xx)+np.dot(Bx,ux)#predicted
             P_x=np.add(multi_dot([Fx,Px,Fx.transpose()]),Qx)#update of the covariance matrix for predicted value
             Kx=np.dot(P_x,Hx.transpose())/(multi_dot([Hx,P_x,Hx.transpose()])+Rx);# calculating Kalman gain
             Xx=np.add(X_x,Kx.dot(np.subtract(Zx,Hx.dot(X_x))))#belief which is a combination of estimation and measurement
-            
+            print("X_x",X_x)
             Px=multi_dot([np.subtract(np.identity(2),Kx.dot(Hx)), P_x])#update the covariance matrix 
             
                    	#y pos kalman filter
@@ -730,9 +744,9 @@ def mainLoop():
 
             # Assigning the direction of motors based on the wheel velocities sign
 
-            if (error2>=-10 and error2<=10):
+            if (error2>=-30 and error2<=30):
                 error2=error2
-                dirR=0 #May need to change depending on connection
+                dirR=1 #May need to change depending on connection
                 dirL=0 #May need to change depending on connection
             #    #packet.append(0xFF) #Start Bit
                 #packet.append(0x01) #ID Bit
@@ -746,10 +760,10 @@ def mainLoop():
             else:	
                 if np.sign(error2)==-1:
                     dirR=0
-                    dirL=1
+                    dirL=0
                 elif np.sign(error2)==1:
                     dirR=1
-                    dirL=0
+                    dirL=1
                 
              
             ## Setting limits to the inputs 
@@ -765,39 +779,27 @@ def mainLoop():
                             
             # Assigning Individual Wheel velocities
            
-            u1=0
+            #u1=0
             #u2=0
            
             vr=u1+u2
             vl=u1-u2
 
-            #if(np.sign(vr) == 1):
-            #dirR= 0x00
-            #if(np.sign(vr) == -1):
-            #    dirR= 0x01
-
-            #if(np.sign(vl) == 1):
-            #    dirL= 0x00
-
-            #if(np.sign(vl) == -1):
-            #    dirL= 0x01
-
-            #if(np.sign(error2) == 1):
-            #    dirL = 0x00
-            #   dirR = 0x01
-            #if(np.sign(error2) == -1):
-            #   dirL = 0x01
-            #  dirR = 0x00
-                
+            
             # Remove the sign in motor velocities
             Vr = abs(int(vr))
             Vl = abs(int(vl))
+           
             #print(Vr)
             #print(Vl)
             # Assign the motor velocities to 0-256 range to send through 8bit UART
             VrHex = int(Vr*255/ VrMax)+0x20
             VlHex = int(Vl*255/ VlMax)+0x20
-
+             
+            if(VrHex == 0):
+                VrHex = 1
+            if(VlHex == 0):
+                VlHex = 1
             if (abs(error1) < 10 and abs(error2) <5): 
                 kick= 0x01
             else:
@@ -954,4 +956,3 @@ class roboGUI(QMainWindow):
 if __name__== "__main__":
     run()
     cv2.destroyAllWindows()
-
