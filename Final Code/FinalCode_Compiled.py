@@ -59,17 +59,19 @@ valueMin = 125
 def colorID(hue, sat, val):
     color = 'X' # Default case, 'X' will print an error for an unrecognized element
     if(val > valueMin):
-        if (hue < 128 and hue >= 90):
+        if (hue < 128 and hue >= 85):
         #if (hue < 250 and hue >= 150):
             color = 'B' # Blue team circle
-        elif (hue < 35 and hue > 25 and sat > 80):
+            #print(hue,sat,val)
+        elif (hue < 35 and hue > 25 and sat > 100):
             color = 'Y' # Yellow team circle
+            #print(hue,sat,val)
         elif (hue >= 128 or (hue <= 9 and sat < 120)): # Must address loop in hue
             color = 'P' # Purple ID circle
-        elif (hue < 90 and hue >= 43):
+        elif (hue < 85 and hue >= 43):
             color = 'G' # Green ID circle
         elif ((hue <= 12 and hue >= 3 and sat > 40) or 
-              (hue <=35 and hue > 24 and sat < 80) or (hue <= 24 and hue > 12)):
+              (hue <=35 and hue > 24 and sat < 100) or (hue <= 24 and hue > 12)):
             color = 'O' # Ball!
             #print(hue,sat,val)
         #else:
@@ -566,19 +568,6 @@ temp2=0
 test = 0
 counter = 0
 
-# Plot Lists
-Desired_X = []
-Actual_X = []
-Desired_Y = []
-Actual_Y = []
-Desired_Angle = []
-Actual_Angle = []
-
-angle_meas_list=[]
-angle_bel_list=[]
-angle_predicted_list=[]
-
-
 # flag for switching mains
 radioflag = 0
 # flag for path planning
@@ -589,12 +578,32 @@ recordFlag = 0
 
 cap = cv2.VideoCapture(cv2.CAP_DSHOW + 1) # 0 if your pc doesn't have a webcam, probably 1 if it does
 
+# Plot Lists
+Desired_X = []
+Actual_X = []
+Desired_Y = []
+Actual_Y = []
+Desired_Angle = []
+Actual_Angle = []
+
+#Inputs 
+Input_V= []
+Input_W= []
+
+angle_meas_list=[]
+angle_bel_list=[]
+angle_predicted_list=[]
+
+angleRecording = []
+posRecording = [[],[]]
+
 startTime = timer()
 endTime = 0
 mainLoopTime = []
 
 def mainLoop():
-    if(recordFlag):
+    global startTime, endTime, mainLoopTime
+    if(recordFlag == 1):
         endTime = timer()
         mainLoopTime.append(endTime-startTime)
         startTime = timer()
@@ -605,6 +614,9 @@ def mainLoop():
     global error1,error_prior1,error2,error_prior2,dt,derivative1,L,R,dirR,dirL,umax,u2max,kp1
     global kp2,flag,kd1,kd2,VrMax,VlMax,temp1,temp2,test,counter
     global Desired_X, Actual_X, Desired_Y, Actual_Y, Desired_Angle, Actual_Angle
+    
+    global angleRecording, posRecording
+    
     #cap = cv2.VideoCapture(cv2.CAP_DSHOW + 0) # 0 if your pc doesn't have a webcam, probably 1 if it does
     # https://stackoverflow.com/questions/52043671/opencv-capturing-imagem-with-black-side-bars
     # MSMF doesn't like being scaled up apparently, so switch from it (default) to DirectShow
@@ -672,7 +684,7 @@ def mainLoop():
     #  minDist: Specifies minimum distance between circles (the 4th input to the function)
     #  
     # from documentation: cv2.HoughCircles(image, method, dp, minDist[, circles[, param1[, param2[, minRadius[, maxRadius]]]]]) → circles
-    circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist=5,param1=param1val,param2=param2val,minRadius=1,maxRadius=15)
+    circles = cv2.HoughCircles(hsv_out_gray,cv2.HOUGH_GRADIENT,1,minDist=5,param1=param1val,param2=param2val,minRadius=1,maxRadius=20)
 
     cv2.waitKey(1) # cv2.waitKey() is required to display images- waits 1 millisecond here
 
@@ -725,7 +737,7 @@ def mainLoop():
 
     # Display drawn on frame and original frame
     #cv2.imshow('circles on stream',img)
-    cv2.imshow('original stream',frame)
+    #cv2.imshow('original stream',frame)
 
     #if cv2.waitKey(1) & 0xFF == ord('\r'): # if enter is pressed, stop running
     #    break
@@ -734,6 +746,11 @@ def mainLoop():
     if (isinstance(ball, type(None)) != 0):
         ball = ballClass(temp1,temp2)  
 
+    if(recordFlag == 1):
+        print("recording roboList stuff")
+        angleRecording.append(roboList[0].angle)
+        posRecording[0].append(roboList[0].pos[0])
+        posRecording[1].append(roboList[0].pos[1])
         
     packet = bytearray()
     #packet.append(0xff)
@@ -761,15 +778,15 @@ def mainLoop():
             test=rob.angle
 
             #Printing for Responses
-            Desired_X.append(ball.pos[0])
-            Actual_X.append(rob.pos[0])
-            Desired_Y.append(ball.pos[1])
-            Actual_Y.append(rob.pos[1])
-            Desired_Angle.append(math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0]))))
-            Actual_Angle.append(rob.angle)
+            #Desired_X.append(ball.pos[0])
+            #Actual_X.append(rob.pos[0])
+            #Desired_Y.append(ball.pos[1])
+            #Actual_Y.append(rob.pos[1])
+            #Desired_Angle.append(math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0]))))
+            #Actual_Angle.append(rob.angle)
 
             #Plot the Graphs
-            plt.plot(Actual_X)
+            #plt.plot(Actual_X)
 
 
             #print("rob.angle",rob.angle)
@@ -800,8 +817,8 @@ def mainLoop():
                    error2=error2-360
             else:
                    print("done")
-            print("angle",rob.angle)
-            print("error2",error2)
+            #print("angle",rob.angle)
+            #print("error2",error2)
 
             derivative2=(error2-error_prior2) #Shouldn't this be divided by a dt?
             error_prior2=error2
@@ -818,7 +835,7 @@ def mainLoop():
                 
             derivative1=(error1-error_prior1)
             error_prior1=error1
-            print("error1:",error1)
+            #print("error1:",error1)
             u1=  ( kp1*error1 )   +  ( kd1*derivative1 )
             #print(error1)
             #0 is to rotate forward & 1 is to rotate backward
@@ -909,16 +926,16 @@ def mainLoop():
             if(VlHex == 0):
                 VlHex = 1
 
-            if (abs(error1) < 60 and abs(error2) <10): 
-                kick= 0x00
+            if (abs(error1) < 20 and abs(error2) <10): 
+                kick= 0x01
             else:
                 kick = 0
-            if (error1<50 ):
+            if (error1<20 ):
                 VrHex=0x01
                 VlHex=0x01
             
-            print("VlHex:",VlHex)
-            print("VrHex:",VrHex)
+            #print("VlHex:",VlHex)
+            #print("VrHex:",VrHex)
             counter = counter + 1
             packet.append(0xFF)
             packet.append(0x01)  #Robot ID
@@ -952,9 +969,9 @@ def mainLoop1():
     M= 1.2
     b = 0.2 # damping
     J = (1/2)*M*(R**2) # Moment of Intertia of the robot -- formula of moment of inertia for a cylinder
-    c = 0.3# damping
+    c = 0.1# damping
     k= 1.5 
-    k2= 0.01
+    k2= 0.006
 
 
     #cap = cv2.VideoCapture(cv2.CAP_DSHOW + 0) # 0 if your pc doesn't have a webcam, probably 1 if it does
@@ -1113,15 +1130,15 @@ def mainLoop1():
             test=rob.angle
 
             #Printing for Responses
-            Desired_X.append(ball.pos[0])
-            Actual_X.append(rob.pos[0])
-            Desired_Y.append(ball.pos[1])
-            Actual_Y.append(rob.pos[1])
-            Desired_Angle.append(math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0]))))
-            Actual_Angle.append(rob.angle)
+            #Desired_X.append(ball.pos[0])
+            #Actual_X.append(rob.pos[0])
+            #Desired_Y.append(ball.pos[1])
+            #Actual_Y.append(rob.pos[1])
+            #Desired_Angle.append(math.degrees((math.atan2(ball.pos[1]-rob.pos[1],ball.pos[0]-rob.pos[0]))))
+            #Actual_Angle.append(rob.angle)
 
             #Plot the Graphs
-            plt.plot(Actual_X)
+            #plt.plot(Actual_X)
 
 
             #print("rob.angle",rob.angle)
@@ -1178,7 +1195,7 @@ def mainLoop1():
                     print("done")
             print("error2",error2)
 
-            u2 = -k*(M/dt)*  (   (b*(dt/M)*error2)   + 5*k2*W)
+            u2 = -k*(M/dt)*  (   (b*(dt/M)*error2)   + k2*W)
 
                
             #Error In Position
@@ -1189,7 +1206,7 @@ def mainLoop1():
             #error1 = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5 * (math.cos(math.atan2(ball.pos[1]-rob.pos[1] / ball.pos[0]-rob.pos[0]) - rob.angle))
             error1 = ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5
             
-            u1 = 10*k*(M/dt)*  (   (b*(dt/M)*error1)   + k2*V);
+            u1 = 2*k*(M/dt)*  (   (b*(dt/M)*error1)   + k2*V);
             
             print("u1",u1)
             print("u2",u2)
@@ -1299,11 +1316,11 @@ def mainLoop1():
             if(VlHex == 0):
                 VlHex = 1
 
-            #if (abs(error1) < 45 and abs(error2) <10): 
-            #    kick= 0x01
-            #else:
-            kick = 0
-            if (error1<50 ):
+            if (abs(error1) < 20 and abs(error2) <10): 
+                kick= 0x01
+            else:
+                kick = 0
+            if (error1<20 ):
                 VrHex=0x01
                 VlHex=0x01
             
@@ -1321,9 +1338,19 @@ def mainLoop1():
             KL25.write(packet)
             #data = KL25.read(4)
             #print(data.decode('ISO-8859-1'))
+            if(recordFlag == 1):
+                #Printing for Responses
+                Actual_X.append(rob.pos[0])
+                Actual_Y.append(rob.pos[1])
+                Actual_Angle.append(rob.angle)
+                Input_V.append(u1)
+                Input_W.append(u2)
                 
     #drawnow(makeFig)
     cv2.imshow('circles on stream',img)
+
+
+
 
 # Kalman Filter
 def mainLoop2():
@@ -1664,13 +1691,13 @@ def mainLoop2():
                 VrHex = 1
             if(VlHex == 0):
                 VlHex = 1
-            if (abs(error1) < 10 and abs(error2) <5): 
+            if (abs(error1) < 20 and abs(error2) <10): 
                 kick= 0x01
             else:
                 kick = 0
-            if (error1<50):
-                VrHex=0x0
-                VlHex=0x0
+            if (error1<20):
+                VrHex=0x1
+                VlHex=0x1
             angle_meas_list.append(rob.angle)
             angle_bel_list.append(X_angle[0])
             print("X_angle[0]",X_angle[0])
@@ -2114,13 +2141,13 @@ def mainLoop3():
                 if(VlHex == 0):
                     VlHex = 1
 
-                if (abs(error1) < 60 and abs(error2) <5): 
-                    kick= 0x00
+                if (abs(error1) < 20 and abs(error2) <10): 
+                    kick= 0x01
                 else:
                     kick = 0
 
                 #Mike's Added Value Kicking 
-                if ((error1 < 50) and (error1 == ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5)):
+                if ((error1 < 20) and (error1 == ((ball.pos[0]-rob.pos[0])**2+(ball.pos[1]-rob.pos[1])**2)**0.5)):
                     VrHex = 0x01
                     VlHex = 0x01
 
@@ -2149,30 +2176,78 @@ def mainLoop3():
     cv2.imshow('circles on stream',img)
 
 def plotData():
-    timemean = np.mean(elapsedTime)
-    timestddev = np.std(elapsedTime)
-    text1 = '\u03BC = '+str(round(timemean,2))+'\n\u03C3 = '+str(round(timestddev,2))
+    if(radioflag == 0):
+        del angleRecording[0]
+        anglestddev = np.std(angleRecording)
+        anglemean = np.mean(angleRecording)
+        text = '\u03BC = '+str(round(anglemean,2))+'\n\u03C3 = '+str(round(anglestddev,2))
 
-    plt.figure(1)
-    y3,x3,_ = plt.hist(elapsedTime, color = 'blue', edgecolor = 'black', bins = 50)
-    x3 = x3.max()-0.2*(x3.max()-x3.min())
-    y3 = y3.max()*0.8
-    plt.title('Histogram of Overall Loop Time')
-    plt.xlabel('Number of Readings')
-    plt.ylabel('Time Elapsed in Seconds')
-    plt.text(x3,y3,text1,bbox=dict(facecolor = 'white',alpha=0.5))
+        xstddev = np.std(posRecording[0])
+        ystddev = np.std(posRecording[1])
+        xmean = np.mean(posRecording[0])
+        ymean = np.mean(posRecording[1])
+        text2 = r'$\mu_x$ = '+str(int(xmean))+r' $\mu_y$ = '+str(int(ymean))+'\n'+r'$\sigma_x$ = '+str(round(xstddev,2))+r' $\sigma_y$ = '+str(round(ystddev,2))
 
-    #plt.figure(4)
-    #plt.plot(angle_meas_list)
-    #plt.figure(5)
-    ##print(angle_bel_list)
-    ##cv2.waitKey(0)
-    #plt.plot(angle_bel_list)
-    #plt.figure(6)
-    #plt.plot(angle_predicted_list)
-    #plt.title('Reading Camera')
-    #plt.ylabel('Number of Readings')
+        del mainLoopTime[0]
+        timemean = np.mean(mainLoopTime)
+        timestddev = np.std(mainLoopTime)
+        text3 = '\u03BC = '+str(round(timemean,2))+'\n\u03C3 = '+str(round(timestddev,2))
 
+        plt.figure(1)
+        y,x,_ = plt.hist(angleRecording, color = 'blue', edgecolor = 'black', bins = 100)
+        x = int(x.max()-0.2*(x.max()-x.min()))
+        y = int(y.max()*0.8)
+        plt.title('Histogram of Angular Position Readings')
+        plt.xlabel('Angle')
+        plt.ylabel('Number of Readings')
+        plt.text(x,y,text,bbox=dict(facecolor = 'white',alpha=0.5))
+
+        plt.figure(2)
+        x2 = int(max(posRecording[0])-(max(posRecording[0])-min(posRecording[0]))*0.25)
+        y2 = int(max(posRecording[1])-(max(posRecording[1])-min(posRecording[1]))*0.2)
+        plt.hist2d(posRecording[0],posRecording[1])
+        plt.title('Heatmap of Positional Readings')
+        plt.xlabel('x Position')
+        plt.ylabel('y Position')
+        plt.text(x2,y2,text2,color = 'w',bbox=dict(facecolor = 'white',alpha=0.5))
+
+        plt.figure(3)
+        y3,x3,_ = plt.hist(mainLoopTime, color = 'blue', edgecolor = 'black', bins = 50)
+        x3 = x3.max()-0.2*(x3.max()-x3.min())
+        y3 = y3.max()*0.8
+        plt.title('Histogram of Overall Loop Time')
+        plt.ylabel('Number of Readings')
+        plt.xlabel('Time Elapsed in Seconds')
+        plt.text(x3,y3,text3,bbox=dict(facecolor = 'white',alpha=0.5))
+
+    if(radioflag == 1):
+        plt.figure(1)
+        plt.plot(Actual_X)
+        plt.title('X Position')
+        plt.ylabel('Position (Pixels)')
+        plt.xlabel('Time Elapsed in Seconds')
+
+        plt.figure(2)
+        plt.plot(Actual_Y)
+        plt.title('Y Position')
+        plt.ylabel('Position (Pixels)')
+        plt.xlabel('Time Elapsed in Seconds')
+
+        plt.figure(3)
+        plt.plot(Actual_Angle)
+        plt.title('Angle (deg)')
+        plt.ylabel('Angle')
+        plt.xlabel('Time Elapsed in Seconds')
+
+        plt.figure(4)
+        plt.plot(Input_V)
+        plt.title('Forward Velocity Input')
+        plt.xlabel('Time Elapsed in Seconds')
+
+        plt.figure(5)
+        plt.plot(Input_W)
+        plt.title('Angular Velocity Input')
+        plt.xlabel('Time Elapsed in Seconds')
 
     plt.show()
 
@@ -2202,8 +2277,6 @@ class Worker(QObject):
             elif(radioflag == 3):
                 mainLoop3()
         print("program has been stopped")
-        stoprobot('all')
-        plotData()
         while(True):
             stoprobot('all') # when stop button pressed, stop robots
         
@@ -2384,6 +2457,7 @@ class roboGUI(QMainWindow):
         self.thread.start()
 
     def stopLoop(self):
+        plotData()
         self.worker.working = False
 
     def changedValue_param1(self, value):
@@ -2428,6 +2502,7 @@ class roboGUI(QMainWindow):
             print("defender mode")
 
     def recordFlagSwitcher(self):
+        global recordFlag
         if(self.recordData.isChecked()):
             recordFlag = 1
             print("now recording data...")
